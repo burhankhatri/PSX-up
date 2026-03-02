@@ -255,6 +255,80 @@
             gap: 12px;
         }
 
+        .feature-toggle-row {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .feature-toggle-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .feature-toggle-copy strong {
+            font-size: 0.82rem;
+            color: var(--text-main);
+        }
+
+        .feature-toggle-copy span {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .2s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            top: 3px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background-color: #16a34a;
+        }
+
+        .toggle-switch input:checked+.toggle-slider:before {
+            transform: translateX(20px);
+        }
+
         .horizon-btn {
             background: white;
             border: 2px solid var(--border);
@@ -435,6 +509,37 @@
 
         .chart-wrapper {
             height: 350px;
+        }
+
+        .chart-comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .chart-panel {
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            border-radius: 16px;
+            padding: 12px;
+        }
+
+        .chart-panel-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 10px;
+            letter-spacing: 0.2px;
+        }
+
+        .chart-panel .chart-wrapper {
+            height: 300px;
+        }
+
+        @media (max-width: 1100px) {
+            .chart-comparison-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* Sentiment Card */
@@ -896,6 +1001,22 @@
                             <small>Dec 2026 (informational)</small>
                         </button>
                     </div>
+                    <div class="feature-toggle-row">
+                        <div class="feature-toggle-copy">
+                            <strong>Geo Features Comparison</strong>
+                            <span>Show forecasts with and without geopolitical features</span>
+                        </div>
+                        <label class="toggle-switch" title="Enable side-by-side geo feature comparison">
+                            <input id="geoFeatureToggle" type="checkbox" onchange="selectGeoFeatures(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+                        <button onclick="analyzeStock()"
+                            style="background: var(--primary); color: var(--lime); border: none; padding: 11px 18px; border-radius: 10px; font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;">
+                            Run Prediction
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -936,15 +1057,26 @@
                                 <div style="font-size: 0.8rem; color: var(--text-muted);">Historical + Fortune Teller AI
                                 </div>
                             </div>
-                            <div class="time-filters">
-                                <button class="time-btn" onclick="filterChart(90)">3M</button>
-                                <button class="time-btn" onclick="filterChart(180)">6M</button>
-                                <button class="time-btn active" onclick="filterChart(365)">1Y</button>
-                                <button class="time-btn" onclick="filterChart(9999)">ALL</button>
+                            <div class="time-filters" id="mainTimeFilters">
+                                <button class="time-btn" data-days="90" onclick="filterChart(90)">3M</button>
+                                <button class="time-btn" data-days="180" onclick="filterChart(180)">6M</button>
+                                <button class="time-btn active" data-days="365" onclick="filterChart(365)">1Y</button>
+                                <button class="time-btn" data-days="9999" onclick="filterChart(9999)">ALL</button>
                             </div>
                         </div>
-                        <div class="chart-wrapper">
-                            <canvas id="mainChart"></canvas>
+                        <div class="chart-comparison-grid">
+                            <div class="chart-panel">
+                                <div class="chart-panel-title">Without Geo Features</div>
+                                <div class="chart-wrapper">
+                                    <canvas id="mainChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-panel" id="geoChartPanel" style="display:none;">
+                                <div class="chart-panel-title">With Geo Features</div>
+                                <div class="chart-wrapper">
+                                    <canvas id="geoChart"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1214,10 +1346,12 @@
         }
 
         console.log('Project: PSX-up | Backend:', API_BASE);
-        let chartInstance = null;
+        let chartInstanceWithoutGeo = null;
+        let chartInstanceWithGeo = null;
         let commodityChartInstance = null;
         let globalHistory = [];
-        let globalPredictions = [];
+        let globalPredictionsWithoutGeo = [];
+        let globalPredictionsWithGeo = [];
         let selectedCommodity = null;
         let insightsConfidenceChart = null;
         let liveProgressTimer = null;
@@ -1724,6 +1858,7 @@
 
         // Global variable to track selected horizon
         let selectedHorizon = 21; // Default: 21 days (research-validated)
+        let selectedGeoFeatures = false;
 
         function selectHorizon(horizon) {
             selectedHorizon = horizon;
@@ -1733,6 +1868,23 @@
                 btn.classList.remove('active');
             });
             document.querySelector(`[data-horizon="${horizon}"]`).classList.add('active');
+        }
+
+        function selectGeoFeatures(enabled) {
+            selectedGeoFeatures = Boolean(enabled);
+            try {
+                localStorage.setItem('psx_geo_features_enabled', selectedGeoFeatures ? '1' : '0');
+            } catch (_) { }
+        }
+
+        function initGeoFeatureToggle() {
+            let enabled = false;
+            try {
+                enabled = localStorage.getItem('psx_geo_features_enabled') === '1';
+            } catch (_) { }
+            selectedGeoFeatures = enabled;
+            const toggle = document.getElementById('geoFeatureToggle');
+            if (toggle) toggle.checked = enabled;
         }
 
         async function analyzeStock(overrideSymbol = null) {
@@ -1754,7 +1906,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         symbol,
-                        horizon: selectedHorizon
+                        horizon: selectedHorizon,
+                        enable_geo_features: selectedGeoFeatures,
                     })
                 });
                 const payload = await res.json();
@@ -1861,8 +2014,16 @@
         }
 
         function renderResults(res) {
-            const displayPreds = pickDisplayPredictions(res.daily_predictions || [], res.current_price);
-            const viewRes = { ...res, daily_predictions: displayPreds };
+            const baselineSource = res.daily_predictions_without_geo || res.daily_predictions || [];
+            const geoSource = Array.isArray(res.daily_predictions_with_geo) ? res.daily_predictions_with_geo : [];
+            const displayPreds = pickDisplayPredictions(baselineSource, res.current_price);
+            const displayGeoPreds = pickDisplayPredictions(geoSource, res.current_price);
+            const viewRes = {
+                ...res,
+                daily_predictions: displayPreds,
+                daily_predictions_without_geo: displayPreds,
+                daily_predictions_with_geo: displayGeoPreds,
+            };
             document.getElementById('resultsArea').style.display = 'block';
             scrollToTopOfPage();
 
@@ -1873,8 +2034,12 @@
             document.getElementById('resPrice').innerText = `PKR ${viewRes.current_price.toFixed(2)}`;
 
             const lastPred = viewRes.daily_predictions[viewRes.daily_predictions.length - 1];
-            const predictedPrice = lastPred.predicted_price;
-            const upside = getDisplayUpside(predictedPrice, viewRes.current_price, lastPred.upside_potential);
+            const predictedPrice = Number(lastPred?.predicted_price ?? viewRes.current_price ?? 0);
+            const upside = getDisplayUpside(
+                predictedPrice,
+                viewRes.current_price,
+                Number(lastPred?.upside_potential ?? 0)
+            );
 
             document.getElementById('resForecast').innerText = `PKR ${predictedPrice.toFixed(2)}`;
 
@@ -1985,7 +2150,8 @@
 
             // Prepare Chart Data
             globalHistory = viewRes.historical_data || [];
-            globalPredictions = viewRes.daily_predictions || [];
+            globalPredictionsWithoutGeo = viewRes.daily_predictions_without_geo || viewRes.daily_predictions || [];
+            globalPredictionsWithGeo = viewRes.daily_predictions_with_geo || [];
 
             renderInsightsPanel(viewRes, 'insightsPanel');
             filterChart(365); // Default 1 year
@@ -2072,48 +2238,69 @@
             return `${days}d ago`;
         }
 
-        function filterChart(days) {
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - days);
-
-            const filteredHistory = globalHistory.filter(h => new Date(h.Date) > cutoffDate);
-
+        function buildComparisonSeries(filteredHistory, predictions, predictionLabels) {
             const historyLabels = filteredHistory.map(h => h.Date);
-            const historyPrices = filteredHistory.map(h => h.Close);
-            const predLabels = globalPredictions.map(p => p.date);
-            const predPrices = globalPredictions.map(p => p.predicted_price);
+            const historyPrices = filteredHistory.map(h => {
+                const n = Number(h.Close);
+                return Number.isFinite(n) ? n : null;
+            });
 
-            // Combine labels and align data
-            // We need to insert nulls for predictions during history period
-            // And nulls for history during prediction period
+            const labels = Array.isArray(predictionLabels) ? predictionLabels : [];
+            const predMap = new Map();
+            (predictions || []).forEach(p => {
+                if (!p || p.date == null) return;
+                const n = Number(p.predicted_price);
+                predMap.set(p.date, Number.isFinite(n) ? n : null);
+            });
+            const predPrices = labels.map(lbl => predMap.get(lbl) ?? null);
 
-            const allLabels = [...historyLabels, ...predLabels];
-            const datasetHistory = [...historyPrices, ...new Array(predLabels.length).fill(null)];
-
-            // Connect lines: Prediction should start from last history point
+            const allLabels = [...historyLabels, ...labels];
+            const datasetHistory = [...historyPrices, ...new Array(labels.length).fill(null)];
             const lastHistPrice = historyPrices.length > 0 ? historyPrices[historyPrices.length - 1] : null;
-            const datasetPred = [...new Array(historyPrices.length - 1).fill(null), lastHistPrice, ...predPrices];
+            const datasetPred = historyPrices.length > 0
+                ? [...new Array(historyPrices.length - 1).fill(null), lastHistPrice, ...predPrices]
+                : [...predPrices];
 
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy();
+            const numericValues = [...historyPrices, ...predPrices, lastHistPrice].filter(Number.isFinite);
+            return { allLabels, datasetHistory, datasetPred, numericValues };
+        }
 
-            // Gradients
+        function computeSharedYRange(seriesList) {
+            const values = [];
+            (seriesList || []).forEach(series => {
+                if (!series || !Array.isArray(series.numericValues)) return;
+                values.push(...series.numericValues);
+            });
+            if (values.length === 0) return null;
+
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const spread = maxVal - minVal;
+            const pad = spread > 0 ? spread * 0.08 : Math.max(Math.abs(maxVal) * 0.05, 1);
+            return { min: minVal - pad, max: maxVal + pad };
+        }
+
+        function renderComparisonChart(canvasId, series, forecastColor, forecastTopColor, yRange) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !series || !series.allLabels || series.allLabels.length === 0) return null;
+            const ctx = canvas.getContext('2d');
+
             const gradHist = ctx.createLinearGradient(0, 0, 0, 400);
             gradHist.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
             gradHist.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
 
             const gradPred = ctx.createLinearGradient(0, 0, 0, 400);
-            gradPred.addColorStop(0, 'rgba(193, 242, 54, 0.4)');
-            gradPred.addColorStop(1, 'rgba(193, 242, 54, 0.0)');
+            gradPred.addColorStop(0, forecastTopColor);
+            gradPred.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
 
-            chartInstance = new Chart(ctx, {
+            return new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: allLabels,
+                    labels: series.allLabels,
                     datasets: [
                         {
                             label: 'History',
-                            data: datasetHistory,
+                            data: series.datasetHistory,
                             borderColor: '#10b981',
                             backgroundColor: gradHist,
                             borderWidth: 2,
@@ -2123,8 +2310,8 @@
                         },
                         {
                             label: 'Forecast',
-                            data: datasetPred,
-                            borderColor: '#C1F236',
+                            data: series.datasetPred,
+                            borderColor: forecastColor,
                             backgroundColor: gradPred,
                             borderWidth: 2,
                             borderDash: [5, 5],
@@ -2141,14 +2328,63 @@
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { display: false },
-                        y: { position: 'right', grid: { borderDash: [5, 5], color: '#f3f4f6' } }
+                        y: {
+                            position: 'right',
+                            min: yRange ? yRange.min : undefined,
+                            max: yRange ? yRange.max : undefined,
+                            grid: { borderDash: [5, 5], color: '#f3f4f6' }
+                        }
                     }
                 }
             });
+        }
+
+        function filterChart(days) {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - days);
+            const filteredHistory = globalHistory.filter(h => new Date(h.Date) > cutoffDate);
+            const baselineLabels = globalPredictionsWithoutGeo.map(p => p.date);
+            const geoLabels = globalPredictionsWithGeo.map(p => p.date);
+            const sharedPredictionLabels = baselineLabels.length > 0 ? baselineLabels : geoLabels;
+
+            const withoutGeoSeries = buildComparisonSeries(
+                filteredHistory,
+                globalPredictionsWithoutGeo,
+                sharedPredictionLabels
+            );
+            const hasGeoSeries = Array.isArray(globalPredictionsWithGeo) && globalPredictionsWithGeo.length > 0;
+            const withGeoSeries = hasGeoSeries
+                ? buildComparisonSeries(filteredHistory, globalPredictionsWithGeo, sharedPredictionLabels)
+                : null;
+            const yRange = computeSharedYRange([withoutGeoSeries, withGeoSeries]);
+
+            if (chartInstanceWithoutGeo) chartInstanceWithoutGeo.destroy();
+            if (chartInstanceWithGeo) chartInstanceWithGeo.destroy();
+
+            chartInstanceWithoutGeo = renderComparisonChart(
+                'mainChart',
+                withoutGeoSeries,
+                '#C1F236',
+                'rgba(193, 242, 54, 0.4)',
+                yRange
+            );
+
+            const geoPanel = document.getElementById('geoChartPanel');
+            if (geoPanel) geoPanel.style.display = hasGeoSeries ? 'block' : 'none';
+            chartInstanceWithGeo = hasGeoSeries
+                ? renderComparisonChart(
+                    'geoChart',
+                    withGeoSeries,
+                    '#38bdf8',
+                    'rgba(56, 189, 248, 0.35)',
+                    yRange
+                )
+                : null;
 
             // Update buttons
-            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-            // (Simulated active state logic would go here)
+            document.querySelectorAll('#mainTimeFilters .time-btn').forEach(btn => {
+                btn.classList.toggle('active', Number(btn.dataset.days) === Number(days));
+            });
         }
 
         async function loadHistoryList() {
@@ -2466,7 +2702,11 @@
                 const res = await fetch(`${API_BASE}/api/batch-analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ symbols: symbols.join(','), horizon: selectedHorizon })
+                    body: JSON.stringify({
+                        symbols: symbols.join(','),
+                        horizon: selectedHorizon,
+                        enable_geo_features: selectedGeoFeatures,
+                    })
                 });
                 const data = await res.json();
                 if (!res.ok || !Array.isArray(data.jobs) || data.jobs.length === 0) {
@@ -2754,7 +2994,11 @@
             fetch(`${API_BASE}/api/analyze-stock`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ symbol, horizon: selectedHorizon })
+                body: JSON.stringify({
+                    symbol,
+                    horizon: selectedHorizon,
+                    enable_geo_features: selectedGeoFeatures,
+                })
             })
             .then(r => r.json())
             .then(data => {
@@ -3015,6 +3259,7 @@
             });
         })();
 
+        initGeoFeatureToggle();
         loadDashboardHistory();
     </script>
 </body>

@@ -178,6 +178,15 @@ MACRO_CATEGORIES = [
     'Pakistan budget',
     'KSE-100 index',
     'PSX market today',
+    # Geopolitical / conflict terms (Phase 3 expansion)
+    'Pakistan India tensions',
+    'Middle East conflict oil',
+    'Iran Israel escalation',
+    'Red Sea shipping disruption',
+    'Pakistan Afghanistan border',
+    'OPEC production cut',
+    'global recession risk',
+    'Pakistan credit rating',
 ]
 
 # Index symbols that require market-wide retrieval strategy
@@ -204,7 +213,10 @@ INDEX_RELEVANCE_TERMS = {
     'macro': [
         'sbp', 'policy rate', 'kibor', 'imf', 'usd pkr',
         'forex reserves', 'budget', 'inflation', 'geopolitical',
-        'conflict', 'war', 'sanctions', 'oil prices'
+        'conflict', 'war', 'sanctions', 'oil prices',
+        'opec', 'recession', 'credit rating', 'trade war',
+        'tariff', 'energy crisis', 'red sea', 'middle east',
+        'border tension', 'military', 'defence',
     ],
     'business_hints': ['business', 'markets', 'stocks', 'economy'],
 }
@@ -536,11 +548,23 @@ def _is_symbol_relevant(title: str, queries: List[str]) -> bool:
     return any(q.lower() in title_lower for q in queries)
 
 
+_GEO_CONFLICT_HINTS = frozenset([
+    'conflict', 'war', 'strike', 'tension', 'sanctions', 'oil',
+    'opec', 'red sea', 'recession', 'tariff', 'credit rating',
+    'middle east', 'iran', 'shipping', 'energy crisis',
+])
+
+
 def _is_index_relevant(article: Dict) -> bool:
     score = score_index_relevance(article.get('title', ''), article.get('url', ''))
     article['relevance_score'] = score
     # Keep market-direct titles even if macro score is modest.
     if _contains_market_term(article.get('title', ''), article.get('url', '')):
+        return score >= 0.6
+    # Relax threshold for geopolitical/conflict articles (they affect PSX even
+    # without an explicit "PSX" or "KSE" mention in the headline).
+    title_lower = (article.get('title') or '').lower()
+    if any(hint in title_lower for hint in _GEO_CONFLICT_HINTS):
         return score >= 0.6
     return score >= 1.0
 
@@ -737,38 +761,90 @@ def fetch_multi_source_news(
     return ranked_news
 
 
+# Sources ordered by reliability for financial content (Minute Mirror works
+# best with curl for PSX-related queries; others often return homepage/JS).
+_MACRO_SEARCH_SOURCES = [
+    ('Minute Mirror', 'https://minutemirror.com.pk/?s={}'),
+    ('Pakistan Today', 'https://www.pakistantoday.com.pk/?s={}'),
+    ('Dawn', 'https://www.dawn.com/search?q={}'),
+    ('Business Recorder', 'https://www.brecorder.com/?s={}'),
+]
+
+# Prioritise PSX-specific macro queries (these return financial content);
+# abstract geopolitical queries ("Iran Israel escalation") rarely yield
+# stock-relevant results from Pakistani news sources via curl search.
+_MACRO_PRIORITY_QUERIES = [
+    'PSX market today',
+    'KSE-100 index',
+    'Pakistan stocks',
+    'SBP policy rate Pakistan',
+    'IMF Pakistan economy',
+    'USD PKR exchange rate',
+    'Pakistan budget economy',
+    'oil prices Pakistan economy',
+]
+
+
 def fetch_macro_news(retrieval_mode: str = 'symbol_mode', max_topics: int = 3) -> List[Dict]:
-    """Fetch macro economic news that affects PSX; broader in index mode."""
+    """Fetch macro economic news that affects PSX; broader in index mode.
+
+    Uses prioritised PSX-specific queries across multiple sources to improve
+    recall.  The geopolitical/conflict terms in MACRO_CATEGORIES are still
+    used for *scoring* fetched articles, even when they can't be used as
+    effective search queries (most Pakistani news search endpoints are noisy
+    or broken with curl).
+    """
     macro_articles: List[Dict] = []
     seen: Set[str] = set()
-    topics = MACRO_CATEGORIES[:max_topics]
 
     if retrieval_mode == 'index_mode':
-        topics = list(dict.fromkeys(INDEX_QUERY_PACK + MACRO_CATEGORIES))[:max_topics]
+        topics = list(dict.fromkeys(
+            _MACRO_PRIORITY_QUERIES + INDEX_QUERY_PACK + MACRO_CATEGORIES
+        ))[:max_topics]
+    else:
+        topics = MACRO_CATEGORIES[:max_topics]
+
+    target = 8 if retrieval_mode == 'index_mode' else 5
 
     for topic in topics:
-        try:
-            search_url = f"https://www.brecorder.com/?s={topic.replace(' ', '+')}"
-            fetched = fetch_news_curl_with_status(search_url, timeout=5)
-            if fetched.get('status') != 'ok':
+        if len(macro_articles) >= target:
+            break
+        for source_name, url_template in _MACRO_SEARCH_SOURCES:
+            if len(macro_articles) >= target:
+                break
+            try:
+                search_url = url_template.format(topic.replace(' ', '+'))
+                fetched = fetch_news_curl_with_status(search_url, timeout=8)
+                if fetched.get('status') != 'ok':
+                    continue
+
+                articles = extract_articles_from_html(
+                    fetched.get('html', ''), source_name
+                )
+                added_from_source = 0
+                # Scan more articles (relevant ones may not be first)
+                for article in articles[:10]:
+                    key = normalize_news_key(article)
+                    if key in seen:
+                        continue
+                    if retrieval_mode == 'index_mode':
+                        if not _is_index_relevant(article):
+                            continue
+                    seen.add(key)
+                    article['is_macro'] = True
+                    article['is_direct'] = False
+                    macro_articles.append(article)
+                    added_from_source += 1
+                    if added_from_source >= 3:
+                        break
+
+                # If this source yielded results for this topic, move to next topic
+                if added_from_source > 0:
+                    break
+            except Exception:
                 continue
 
-            articles = extract_articles_from_html(fetched.get('html', ''), 'Business Recorder')
-            for article in articles[:3]:
-                key = normalize_news_key(article)
-                if key in seen:
-                    continue
-                if retrieval_mode == 'index_mode':
-                    if not _is_index_relevant(article):
-                        continue
-                seen.add(key)
-                article['is_macro'] = True
-                article['is_direct'] = False
-                macro_articles.append(article)
-        except Exception:
-            continue
-
-    return macro_articles[:8 if retrieval_mode == 'index_mode' else 5]
+    return macro_articles[:target]
 
 
 # ============================================================================

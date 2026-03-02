@@ -44,6 +44,12 @@ except ImportError:
     XGBOOST_AVAILABLE = False
 
 try:
+    from backend.runtime_config import get_runtime_config, RuntimeConfig
+except Exception:
+    get_runtime_config = None
+    RuntimeConfig = None
+
+try:
     from backend.prediction_tuning import (
         apply_prediction_tweaks,
         get_live_tweak_config,
@@ -68,6 +74,7 @@ except Exception:
 class StockRequest(BaseModel):
     symbol: str
     horizon: Union[int, str] = 21  # Default to 21 days (research-validated), can be int or 'full'
+    enable_geo_features: Optional[bool] = None
 
 progress_data = {}
 INDEX_SYMBOLS = {'KSE100', 'KSE-100', 'PSX'}
@@ -842,9 +849,117 @@ async def analyze_stock(request: StockRequest):
         'progress': 0,
         'message': 'Initializing...',
         'symbol': symbol,
-        'horizon': horizon_days  # Store for websocket handler
+        'horizon': horizon_days,  # Store for websocket handler
+        'enable_geo_features': request.enable_geo_features,
     }
     return {'job_id': job_id, 'symbol': symbol}
+
+def _run_shadow_comparison(
+    symbol: str,
+    baseline_predictions: list,
+    df: pd.DataFrame,
+    sentiment_result: dict | None,
+    upgraded_predictions: Optional[list] = None,
+    geo_features: Optional[dict] = None,
+) -> dict:
+    """Run upgraded pipeline in shadow and compare against baseline predictions.
+
+    Baseline output remains user-facing; this function only computes drift
+    metrics for the tuning report.
+    """
+    from backend.sentiment_math import get_rigorous_adjustment, apply_adjustments_to_predictions
+    from backend.geopolitical_features import (
+        get_geopolitical_features_from_news,
+        build_geopolitical_daily_adjustments,
+    )
+
+    comparison: dict = {"enabled": True, "status": "ok"}
+
+    # 1. Compute/reuse geo features
+    if geo_features is None:
+        news_items = (sentiment_result or {}).get("news_items", [])
+        geo_features = get_geopolitical_features_from_news(news_items, symbol)
+    comparison["geo_features"] = geo_features or {}
+
+    # 2. Recompute upgraded series only if caller did not provide it
+    if upgraded_predictions is None:
+        upgraded_predictions = baseline_predictions
+        if sentiment_result:
+            upgraded_adj = get_rigorous_adjustment(
+                sentiment_result,
+                prediction_length=len(baseline_predictions),
+                frequency="daily",
+            )
+            current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0
+            preds_with_price = [dict(p, current_price=current_close) for p in baseline_predictions]
+            upgraded_predictions = apply_adjustments_to_predictions(
+                preds_with_price, upgraded_adj["adjustments"]
+            )
+        geo_adj_data = build_geopolitical_daily_adjustments(
+            geo_features or {},
+            prediction_length=len(upgraded_predictions),
+            symbol=symbol,
+        )
+        if geo_adj_data.get("adjustments"):
+            current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0
+            upgraded_with_price = [dict(p, current_price=current_close) for p in upgraded_predictions]
+            upgraded_predictions = apply_adjustments_to_predictions(
+                upgraded_with_price, geo_adj_data["adjustments"]
+            )
+        comparison["adjustment_summary"] = geo_adj_data.get("summary", {})
+    comparison["upgraded_count"] = len(upgraded_predictions or [])
+
+    # 3. Compute drift metrics at key horizons
+    drift_points = {}
+    for day_idx, label in [(0, "day_1"), (6, "day_7"), (20, "day_21")]:
+        if day_idx >= len(baseline_predictions) or day_idx >= len(upgraded_predictions):
+            continue
+        bp = float(baseline_predictions[day_idx].get("predicted_price", 0) or 0)
+        up = float(upgraded_predictions[day_idx].get("predicted_price", 0) or 0)
+        drift_pct = ((up - bp) / bp * 100.0) if bp > 0 else 0.0
+        b_dir = "BULLISH" if float(baseline_predictions[day_idx].get("upside_potential", 0) or 0) > 0 else "BEARISH"
+        u_dir = "BULLISH" if float(upgraded_predictions[day_idx].get("upside_potential", 0) or 0) > 0 else "BEARISH"
+        drift_points[label] = {
+            "baseline_price": round(bp, 2),
+            "upgraded_price": round(up, 2),
+            "drift_pct": round(drift_pct, 4),
+            "direction_match": b_dir == u_dir,
+        }
+
+    comparison["drift"] = drift_points
+
+    # 4. Aggregate summary
+    all_drifts = [abs(d["drift_pct"]) for d in drift_points.values()]
+    direction_matches = [d["direction_match"] for d in drift_points.values()]
+    comparison["summary"] = {
+        "median_drift_pct": round(sorted(all_drifts)[len(all_drifts) // 2], 4) if all_drifts else 0.0,
+        "max_drift_pct": round(max(all_drifts), 4) if all_drifts else 0.0,
+        "direction_agreement_pct": round(
+            sum(direction_matches) / len(direction_matches) * 100, 1
+        ) if direction_matches else 100.0,
+    }
+
+    # 5. Persist to tuning report
+    try:
+        report_dir = Path(__file__).parent.parent / "data" / "prediction_logs"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        shadow_file = report_dir / "shadow_comparison_latest.json"
+        import json as _json
+        with open(shadow_file, "w") as f:
+            _json.dump(
+                {
+                    "symbol": symbol,
+                    "compared_at": datetime.now().isoformat(),
+                    **comparison,
+                },
+                f,
+                indent=2,
+            )
+    except Exception:
+        pass  # non-fatal
+
+    return comparison
+
 
 # Route will be added in main.py
 async def websocket_progress(websocket: WebSocket, job_id: str):
@@ -865,6 +980,10 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         
         symbol = progress_data[job_id]['symbol']
         horizon_days = progress_data[job_id].get('horizon', 21)  # Get horizon, default 21
+        request_geo_toggle = progress_data[job_id].get('enable_geo_features')
+
+        # Load runtime config once per request lifecycle
+        _rcfg = get_runtime_config(force_reload=True) if get_runtime_config else None
 
         await websocket.send_json({
             'stage': 'checking',
@@ -1207,7 +1326,9 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             # Fetch and analyze news with Groq (anti-hallucination prompt)
             sentiment_result = get_stock_sentiment(symbol, use_cache=False)
             
-            enable_index_recall_in_model = os.getenv('ENABLE_INDEX_RECALL_IN_MODEL', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+            enable_index_recall_in_model = _rcfg.enable_index_recall_in_model if _rcfg else (
+                os.getenv('ENABLE_INDEX_RECALL_IN_MODEL', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+            )
             apply_sentiment_to_predictions = not (symbol in INDEX_SYMBOLS and not enable_index_recall_in_model)
 
             # Calculate mathematically rigorous adjustments
@@ -1297,14 +1418,70 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         except Exception as e:
             print(f"Prediction tuning skipped (non-fatal): {e}")
             tuning_meta = {"enabled": False, "error": str(e)}
-        
+
+        predictions_without_geo = adjusted_predictions
+        predictions_with_geo = []
+        geo_enabled = (
+            bool(request_geo_toggle)
+            if request_geo_toggle is not None
+            else (
+                bool(_rcfg.enable_geo_features) if _rcfg else (
+                    os.getenv("ENABLE_GEO_FEATURES", "false").strip().lower() in {"1", "true", "yes", "on"}
+                )
+            )
+        )
+        geo_comparison = {
+            "enabled": geo_enabled,
+            "applied": False,
+            "labels": {
+                "baseline": "Without Geo Features",
+                "geo": "With Geo Features",
+            },
+        }
+        if geo_comparison["enabled"]:
+            try:
+                from backend.sentiment_math import apply_adjustments_to_predictions
+                from backend.geopolitical_features import (
+                    get_geopolitical_features_from_news,
+                    build_geopolitical_daily_adjustments,
+                )
+                news_items = (sentiment_result or {}).get("news_items", [])
+                geo_features = get_geopolitical_features_from_news(news_items, symbol)
+                geo_adjustment_data = build_geopolitical_daily_adjustments(
+                    geo_features,
+                    prediction_length=len(predictions_without_geo),
+                    symbol=symbol,
+                )
+
+                current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
+                baseline_with_current = [dict(p, current_price=current_close) for p in predictions_without_geo]
+                predictions_with_geo = apply_adjustments_to_predictions(
+                    baseline_with_current,
+                    geo_adjustment_data.get("adjustments", []),
+                )
+                geo_comparison.update(
+                    {
+                        "applied": bool(predictions_with_geo),
+                        "geo_features": geo_features,
+                        "adjustment_summary": geo_adjustment_data.get("summary", {}),
+                    }
+                )
+            except Exception as geo_err:
+                predictions_with_geo = []
+                geo_comparison.update(
+                    {
+                        "applied": False,
+                        "error": str(geo_err)[:200],
+                    }
+                )
+
         # 🆕 Generate detailed monthly forecasts with news correlation
         monthly_forecast = []
         forecast_summary = {}
         try:
             from backend.monthly_forecast import generate_monthly_forecast, generate_forecast_summary
             monthly_forecast = generate_monthly_forecast(
-                adjusted_predictions,
+                predictions_without_geo,
                 sentiment_result,
                 df,
                 symbol
@@ -1328,9 +1505,9 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         })
         
         # Calculate backtest metrics from adjusted predictions
-        if len(adjusted_predictions) > 0:
+        if len(predictions_without_geo) > 0:
             initial_price = df['Close'].iloc[-1]
-            final_price = adjusted_predictions[-1]['predicted_price']
+            final_price = predictions_without_geo[-1]['predicted_price']
             total_return = (final_price - initial_price) / initial_price * 100
         else:
             total_return = 0
@@ -1347,21 +1524,21 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         mase_val = metrics.get('mase', 0)
         mape_val = metrics.get('mape', 0)
 
-        model_variant = os.getenv('MODEL_VARIANT', 'baseline').strip().lower()
+        model_variant = _rcfg.model_variant if _rcfg else os.getenv('MODEL_VARIANT', 'baseline').strip().lower()
         if model_variant not in {'baseline', 'shadow', 'upgraded'}:
             model_variant = 'baseline'
 
         direction_meta = {}
-        if adjusted_predictions:
+        if predictions_without_geo:
             # Use day-7 as canonical logged horizon (same as logger)
-            pivot_idx = 6 if len(adjusted_predictions) >= 7 else len(adjusted_predictions) - 1
-            pivot_pred = adjusted_predictions[pivot_idx]
+            pivot_idx = 6 if len(predictions_without_geo) >= 7 else len(predictions_without_geo) - 1
+            pivot_pred = predictions_without_geo[pivot_idx]
             raw_direction = direction_from_change_pct(
                 float(pivot_pred.get('upside_potential', 0) or 0),
                 neutral_band_pct=float(getattr(live_tweak_config, "neutral_band_pct", 0.0))
             )
             stable_direction = pivot_pred.get('stable_direction', raw_direction)
-            logged_direction_source = os.getenv('LOGGED_DIRECTION_SOURCE', 'stable').strip().lower()
+            logged_direction_source = _rcfg.logged_direction_source if _rcfg else os.getenv('LOGGED_DIRECTION_SOURCE', 'stable').strip().lower()
             if logged_direction_source not in {'stable', 'raw'}:
                 logged_direction_source = 'stable'
             logged_direction = stable_direction if logged_direction_source == 'stable' else raw_direction
@@ -1381,11 +1558,22 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 
         shadow_comparison = {}
         if model_variant == 'shadow':
-            shadow_comparison = {
-                'enabled': True,
-                'status': 'not_implemented',
-                'note': 'Shadow comparison scaffolding present; baseline output remains user-facing.'
-            }
+            # Shadow mode: run upgraded pipeline in parallel, store comparison
+            try:
+                shadow_comparison = _run_shadow_comparison(
+                    symbol,
+                    predictions_without_geo,
+                    df,
+                    sentiment_result,
+                    upgraded_predictions=predictions_with_geo if geo_comparison.get("applied") else None,
+                    geo_features=geo_comparison.get("geo_features"),
+                )
+            except Exception as shadow_err:
+                shadow_comparison = {
+                    'enabled': True,
+                    'status': 'error',
+                    'error': str(shadow_err)[:200],
+                }
         
         await websocket.send_json({
             'stage': 'complete',
@@ -1403,12 +1591,15 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 },
                 'direction_meta': direction_meta,
                 'sentiment': sentiment_summary,
-                'monthly_predictions': adjusted_predictions[:12],  # First 12 months
-                'daily_predictions': adjusted_predictions, # Full daily predictions
+                'monthly_predictions': predictions_without_geo[:12],  # First 12 months
+                'daily_predictions': predictions_without_geo, # Backward-compatible baseline predictions
+                'daily_predictions_without_geo': predictions_without_geo,
+                'daily_predictions_with_geo': predictions_with_geo,
+                'geo_comparison': geo_comparison,
                 'monthly_forecast': monthly_forecast,  # 🆕 Detailed monthly analysis with reasoning
                 'forecast_summary': forecast_summary,  # 🆕 Overall forecast summary
                 'historical_data': historical_data, # History for charting
-                'all_predictions_count': len(adjusted_predictions),
+                'all_predictions_count': len(predictions_without_geo),
                 'backtest': {
                     'total_return': total_return,
                     'prediction_horizon': '24 months to end of 2026'
@@ -1439,7 +1630,11 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     'monthly_forecast': monthly_forecast,  # Detailed monthly analysis
                     'forecast_summary': forecast_summary,  # Overall outlook
                     'prediction_reasoning': reasoning,
-                    'daily_predictions_count': len(adjusted_predictions),
+                    'daily_predictions': predictions_without_geo,
+                    'daily_predictions_without_geo': predictions_without_geo,
+                    'daily_predictions_with_geo': predictions_with_geo,
+                    'geo_comparison': geo_comparison,
+                    'daily_predictions_count': len(predictions_without_geo),
                     'tuning': tuning_meta,
                     'shadow_comparison': shadow_comparison,
                 }, cf, indent=2)
@@ -1453,8 +1648,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             logger = get_prediction_logger()
 
             # Log the 7-day prediction for tracking
-            if len(adjusted_predictions) >= 7:
-                pred_7d = adjusted_predictions[6]  # Day 7 (index 6)
+            if len(predictions_without_geo) >= 7:
+                pred_7d = predictions_without_geo[6]  # Day 7 (index 6)
                 current_price = float(df['Close'].iloc[-1])
 
                 # Extract Williams signal and sector if available

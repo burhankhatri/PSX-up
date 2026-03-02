@@ -98,6 +98,7 @@ if ANALYZER_AVAILABLE:
     class BatchAnalyzeRequest(BaseModel):
         symbols: str  # Comma-separated symbols like "LUCK,EFERT,PPL"
         horizon: Union[int, str] = 21
+        enable_geo_features: Optional[bool] = None
 
     @app.post("/api/batch-analyze")
     async def api_batch_analyze(request: BatchAnalyzeRequest):
@@ -112,7 +113,11 @@ if ANALYZER_AVAILABLE:
 
         jobs = []
         for symbol in symbols:
-            stock_request = StockRequest(symbol=symbol, horizon=request.horizon)
+            stock_request = StockRequest(
+                symbol=symbol,
+                horizon=request.horizon,
+                enable_geo_features=request.enable_geo_features,
+            )
             result = await start_stock_analysis(stock_request)
             jobs.append({"symbol": symbol, "job_id": result["job_id"]})
 
@@ -609,12 +614,25 @@ async def get_prediction_file(filename: str):
     complete_file = BASE_DIR / "data" / f"{symbol}_complete_analysis.json"
     monthly_forecast = []
     forecast_summary = {}
+    daily_predictions_without_geo = daily_preds
+    daily_predictions_with_geo = []
+    geo_comparison = {
+        "enabled": False,
+        "applied": False,
+        "labels": {
+            "baseline": "Without Geo Features",
+            "geo": "With Geo Features",
+        },
+    }
     if complete_file.exists():
         try:
             with open(complete_file, 'r') as cf:
                 complete_data = json.load(cf)
             monthly_forecast = complete_data.get('monthly_forecast', [])
             forecast_summary = complete_data.get('forecast_summary', {})
+            daily_predictions_without_geo = complete_data.get('daily_predictions_without_geo', daily_preds)
+            daily_predictions_with_geo = complete_data.get('daily_predictions_with_geo', [])
+            geo_comparison = complete_data.get('geo_comparison', geo_comparison)
         except Exception:
             pass
 
@@ -625,6 +643,9 @@ async def get_prediction_file(filename: str):
         "model": data.get('model', 'SOTA Ensemble'),
         "model_performance": data.get('metrics', {}),
         "daily_predictions": daily_preds,
+        "daily_predictions_without_geo": daily_predictions_without_geo,
+        "daily_predictions_with_geo": daily_predictions_with_geo,
+        "geo_comparison": geo_comparison,
         "historical_data": historical_data,
         "sentiment": sentiment,
         "prediction_reasoning": data.get('prediction_reasoning'),  # Include reasoning if available

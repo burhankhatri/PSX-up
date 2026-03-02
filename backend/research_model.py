@@ -28,6 +28,15 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
+# Typed runtime configuration (single source of truth for flags)
+try:
+    from backend.runtime_config import get_runtime_config
+except ImportError:
+    try:
+        from runtime_config import get_runtime_config
+    except ImportError:
+        get_runtime_config = None
+
 # Sklearn imports
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import TimeSeriesSplit
@@ -979,7 +988,10 @@ class PSXResearchModel:
             df['news_recency'] = 0.5
 
         # 7. Geopolitical features (flagged shadow rollout only)
-        enable_geo_features = os.getenv('ENABLE_GEO_FEATURES', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+        _cfg = get_runtime_config() if get_runtime_config else None
+        enable_geo_features = _cfg.enable_geo_features if _cfg else (
+            os.getenv('ENABLE_GEO_FEATURES', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+        )
         if enable_geo_features and GEO_FEATURES_AVAILABLE and self.symbol:
             print("7. Adding geopolitical risk features...")
             try:

@@ -17,6 +17,7 @@ Key principles:
 """
 
 import math
+import os
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 
@@ -356,6 +357,12 @@ def generate_adjustment_report(sentiment_analysis: Dict, adjustments: List[Dict]
 # WRAPPER FUNCTION FOR INTEGRATION
 # ============================================================================
 
+def _get_sentiment_adjust_mode() -> str:
+    """Read SENTIMENT_ADJUST_MODE from env. 'legacy' preserves old behaviour;
+    'date_aware' uses day/date-indexed adjustments even for monthly calls."""
+    return os.getenv('SENTIMENT_ADJUST_MODE', 'legacy').strip().lower()
+
+
 def get_rigorous_adjustment(
     sentiment_result: Dict,
     prediction_length: int = 24,
@@ -363,15 +370,36 @@ def get_rigorous_adjustment(
 ) -> Dict:
     """
     Main function: Get mathematically rigorous price adjustment.
-    
+
     Args:
         sentiment_result: Output from sentiment_analyzer.get_stock_sentiment()
-    
+        prediction_length: Number of periods (days or months)
+        frequency: 'daily' or 'monthly'
+
     Returns:
         Dictionary with adjustments and metadata
     """
-    # Calculate adjustments
-    if frequency == 'daily':
+    adjust_mode = _get_sentiment_adjust_mode()
+
+    # In date_aware mode, always compute day-indexed adjustments so that
+    # monthly predictions get decay-correct values (days_from_now = actual
+    # day offset, not month_index * 30).
+    if adjust_mode == 'date_aware' and frequency == 'monthly':
+        # Convert monthly count to approximate daily count, then map back
+        total_days = max(1, int(prediction_length)) * 30
+        adjustments = calculate_sentiment_adjustment_daily(
+            sentiment_result, prediction_days=total_days
+        )
+        # Re-key every 30th entry with a 'month' label for downstream compat
+        monthly_adjustments = []
+        for m in range(1, int(prediction_length) + 1):
+            day_idx = m * 30 - 1
+            if day_idx < len(adjustments):
+                entry = dict(adjustments[day_idx])
+                entry['month'] = m
+                monthly_adjustments.append(entry)
+        adjustments = monthly_adjustments if monthly_adjustments else adjustments
+    elif frequency == 'daily':
         adjustments = calculate_sentiment_adjustment_daily(
             sentiment_result,
             prediction_days=max(1, int(prediction_length))
