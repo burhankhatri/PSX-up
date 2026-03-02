@@ -454,5 +454,24 @@
     "actual_direction": null,
     "direction_correct": null,
     "evaluated": false
+  },
+  {
+    "id": "GCIL_20260302_070019",
+    "symbol": "GCIL",
+    "prediction_date": "2026-03-02T07:00:19.700269",
+    "evaluation_date": "2026-03-09",
+    "horizon_days": 7,
+    "current_price": 28.3,
+    "predicted_price": 24.69,
+    "predicted_change_pct": -12.76,
+    "predicted_direction": "BEARISH",
+    "confidence": 0.88,
+    "williams_signal": "DOWN",
+    "sector": null,
+    "actual_price": null,
+    "actual_change_pct": null,
+    "actual_direction": null,
+    "direction_correct": null,
+    "evaluated": false
   }
 ]

@@ -560,6 +560,116 @@
             margin-bottom: 20px;
         }
 
+        .why-card-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .geo-mode-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.3px;
+        }
+
+        .geo-mode-on {
+            background: rgba(16, 185, 129, 0.16);
+            color: #047857;
+        }
+
+        .geo-mode-off {
+            background: rgba(148, 163, 184, 0.2);
+            color: #64748b;
+        }
+
+        .geo-overlay-wrap {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .geo-overlay-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 0.4px;
+            margin-bottom: 8px;
+        }
+
+        .geo-overlay-status {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .geo-chip-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .geo-chip {
+            border-radius: 10px;
+            padding: 7px 9px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .geo-chip-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.35px;
+            margin-bottom: 2px;
+        }
+
+        .geo-chip-value {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .geo-chip-low {
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .geo-chip-mid {
+            border-color: rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.08);
+        }
+
+        .geo-chip-high {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .geo-horizon-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.76rem;
+            margin-top: 8px;
+        }
+
+        .geo-horizon-table th,
+        .geo-horizon-table td {
+            padding: 5px 6px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: right;
+        }
+
+        .geo-horizon-table th:first-child,
+        .geo-horizon-table td:first-child {
+            text-align: left;
+        }
+
         .news-item {
             padding: 15px 0;
             border-bottom: 1px solid #f1f5f9;
@@ -835,7 +945,7 @@
         /* ===== PREDICTION INSIGHTS ===== */
         .insights-panel { margin-top: 30px; }
         .insights-section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
-        .entry-exit-card { background: var(--bg-card); border-radius: 20px; padding: 25px; box-shadow: var(--shadow); display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .entry-exit-card { background: var(--bg-card); border-radius: 20px; padding: 25px; box-shadow: var(--shadow); display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 25px; }
         .entry-exit-item { text-align: center; padding: 15px; border-radius: 12px; }
         .entry-exit-item.entry-highlight { background: rgba(16,185,129,0.08); border: 2px solid rgba(16,185,129,0.2); }
         .entry-exit-item.exit-highlight { background: rgba(193,242,54,0.12); border: 2px solid rgba(193,242,54,0.3); }
@@ -864,6 +974,11 @@
         .badge-rel-low { background: rgba(239,68,68,0.15); color: #dc2626; }
         .badge-buy { background: rgba(16,185,129,0.2); color: #059669; }
         .badge-sell { background: rgba(193,242,54,0.3); color: #6b7280; }
+        .badge-setup-na { background: rgba(148,163,184,0.24); color: #475569; }
+        .model-bias-badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.3px; }
+        .model-bias-bullish { background: rgba(16,185,129,0.14); color: #059669; }
+        .model-bias-bearish { background: rgba(239,68,68,0.14); color: #dc2626; }
+        .model-bias-neutral { background: rgba(148,163,184,0.2); color: #475569; }
         .confidence-card { background: var(--bg-card); border-radius: 20px; padding: 25px; box-shadow: var(--shadow); margin-bottom: 25px; }
         .confidence-card .chart-area { height: 180px; position: relative; }
         .batch-insights-compact { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); }
@@ -1098,8 +1213,10 @@
 
                     <!-- Prediction Signals Card (NEW) -->
                     <div class="sentiment-card" id="predictionSignalsCard" style="margin-top: 20px; display: none;">
-                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 15px;">Why This Prediction?
-                        </h3>
+                        <div class="why-card-title-row">
+                            <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Why This Prediction?</h3>
+                            <span id="geoModeBadge" class="geo-mode-badge geo-mode-off">Geo OFF</span>
+                        </div>
                         <div id="predictionDirection" class="sentiment-badge"
                             style="background: #eee; margin-bottom: 15px;">Analyzing...</div>
                         <p id="predictionExplanation"
@@ -1122,6 +1239,11 @@
                             <div style="font-size: 0.75rem; font-weight: 700; color: #9ca3af; margin-bottom: 8px;">
                                 OTHER FACTORS</div>
                             <div id="neutralList" style="font-size: 0.8rem;"></div>
+                        </div>
+
+                        <div id="geoOverlaySection" class="geo-overlay-wrap" style="display:none;">
+                            <div class="geo-overlay-title">GEOPOLITICAL OVERLAY</div>
+                            <div id="geoOverlayContent"></div>
                         </div>
                     </div>
                 </div>
@@ -1482,43 +1604,56 @@
         // =============================================
         function computeInsights(res) {
             const preds = res.daily_predictions || [];
-            const currentPrice = res.current_price || 0;
+            const currentPrice = Number(res.current_price) || 0;
             if (preds.length === 0) return null;
 
             // Daily changes
             const dailyChanges = preds.map((p, i) => {
-                const prevPrice = i === 0 ? currentPrice : preds[i - 1].predicted_price;
-                const dailyChangePct = prevPrice > 0 ? ((p.predicted_price - prevPrice) / prevPrice) * 100 : 0;
-                const cumulativePct = currentPrice > 0 ? ((p.predicted_price - currentPrice) / currentPrice) * 100 : 0;
+                const rowPrice = Number(p.predicted_price) || 0;
+                const prevPrice = i === 0 ? currentPrice : (Number(preds[i - 1].predicted_price) || 0);
+                const dailyChangePct = prevPrice > 0 ? ((rowPrice - prevPrice) / prevPrice) * 100 : 0;
+                const cumulativePct = currentPrice > 0 ? ((rowPrice - currentPrice) / currentPrice) * 100 : 0;
                 return { ...p, daily_change_pct: dailyChangePct, cumulative_pct: cumulativePct };
             });
 
             // Entry: predicted bottom (min price)
             let minIdx = 0;
             for (let i = 1; i < preds.length; i++) {
-                if (preds[i].predicted_price < preds[minIdx].predicted_price) minIdx = i;
+                if ((Number(preds[i].predicted_price) || 0) < (Number(preds[minIdx].predicted_price) || 0)) minIdx = i;
             }
             // Exit: predicted peak AFTER bottom
             let maxAfterMinIdx = minIdx;
             for (let i = minIdx + 1; i < preds.length; i++) {
-                if (preds[i].predicted_price > preds[maxAfterMinIdx].predicted_price) maxAfterMinIdx = i;
+                if ((Number(preds[i].predicted_price) || 0) > (Number(preds[maxAfterMinIdx].predicted_price) || 0)) maxAfterMinIdx = i;
             }
             // Overall high
             let maxIdx = 0;
             for (let i = 1; i < preds.length; i++) {
-                if (preds[i].predicted_price > preds[maxIdx].predicted_price) maxIdx = i;
+                if ((Number(preds[i].predicted_price) || 0) > (Number(preds[maxIdx].predicted_price) || 0)) maxIdx = i;
             }
 
-            const entryPrice = preds[minIdx].predicted_price;
-            const exitPrice = preds[maxAfterMinIdx].predicted_price;
-            const potentialGainPct = entryPrice > 0 ? ((exitPrice - entryPrice) / entryPrice) * 100 : 0;
+            const entryPrice = Number(preds[minIdx].predicted_price) || 0;
+            const exitPrice = Number(preds[maxAfterMinIdx].predicted_price) || 0;
+            const predictedHigh = Number(preds[maxIdx].predicted_price) || 0;
+            const predictedLow = Number(preds[minIdx].predicted_price) || 0;
+            const tradeSetupValid = (maxAfterMinIdx > minIdx) && (exitPrice > entryPrice);
+            const tradeSetupGainPct = (tradeSetupValid && entryPrice > 0)
+                ? ((exitPrice - entryPrice) / entryPrice) * 100
+                : null;
+            const bestCaseRangePct = predictedLow > 0
+                ? ((predictedHigh - predictedLow) / predictedLow) * 100
+                : null;
+            const potentialGainPct = tradeSetupGainPct;
             const currentToBottomPct = currentPrice > 0 ? ((entryPrice - currentPrice) / currentPrice) * 100 : 0;
 
             // Max drawdown
-            let maxDrawdown = 0, peakPrice = preds[0].predicted_price;
+            let maxDrawdown = 0;
+            let peakPrice = Number(preds[0].predicted_price) || 0;
             for (let i = 1; i < preds.length; i++) {
-                if (preds[i].predicted_price > peakPrice) peakPrice = preds[i].predicted_price;
-                const dd = ((peakPrice - preds[i].predicted_price) / peakPrice) * 100;
+                const p = Number(preds[i].predicted_price) || 0;
+                if (p > peakPrice) peakPrice = p;
+                if (peakPrice <= 0) continue;
+                const dd = ((peakPrice - p) / peakPrice) * 100;
                 if (dd > maxDrawdown) maxDrawdown = dd;
             }
 
@@ -1534,11 +1669,19 @@
             return {
                 dailyChanges,
                 entry: { date: preds[minIdx].date, day: preds[minIdx].day, price: entryPrice, currentToBottomPct },
-                exit: { date: preds[maxAfterMinIdx].date, day: preds[maxAfterMinIdx].day, price: exitPrice, potentialGainPct },
-                hasTradeSetup: maxAfterMinIdx > minIdx,
+                exit: {
+                    date: preds[maxAfterMinIdx].date,
+                    day: preds[maxAfterMinIdx].day,
+                    price: exitPrice,
+                    potentialGainPct,
+                    tradeSetupGainPct,
+                },
+                hasTradeSetup: tradeSetupValid,
+                tradeSetupValid,
                 metrics: {
-                    predictedHigh: { price: preds[maxIdx].predicted_price, date: preds[maxIdx].date, day: preds[maxIdx].day },
-                    predictedLow: { price: preds[minIdx].predicted_price, date: preds[minIdx].date, day: preds[minIdx].day },
+                    predictedHigh: { price: predictedHigh, date: preds[maxIdx].date, day: preds[maxIdx].day },
+                    predictedLow: { price: predictedLow, date: preds[minIdx].date, day: preds[minIdx].day },
+                    bestCaseRangePct,
                     maxDrawdownPct: maxDrawdown,
                     volatility: Math.sqrt(variance),
                     avgDailyChangePct: avgChange,
@@ -1561,6 +1704,160 @@
                 const d = new Date(dateStr + 'T12:00:00');
                 return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             } catch (e) { return dateStr || '--'; }
+        }
+
+        function normalizeMonthlyForecastItem(item) {
+            if (!item || typeof item !== 'object') return null;
+            const reasoningObj = (item.reasoning && typeof item.reasoning === 'object') ? item.reasoning : {};
+            const rawChange = item.predicted_change_pct ?? item.expected_return_pct ?? item.change_pct;
+            const changePct = Number.isFinite(Number(rawChange)) ? Number(rawChange) : null;
+            const rawStart = item.price_at_start ?? item.start_price;
+            const rawEnd = item.price_at_end ?? item.end_price;
+            const startPrice = Number.isFinite(Number(rawStart)) ? Number(rawStart) : null;
+            const endPrice = Number.isFinite(Number(rawEnd)) ? Number(rawEnd) : null;
+            const rawDriver = reasoningObj.primary_driver || item.primary_driver || item.driver || null;
+            const driver = (typeof rawDriver === 'string' && rawDriver.trim()) ? rawDriver : null;
+
+            return {
+                month: item.month,
+                month_name: item.month_name || item.month || '--',
+                trend: item.trend || (changePct == null ? 'NEUTRAL' : (changePct >= 0 ? 'BULLISH' : 'BEARISH')),
+                change_pct: changePct,
+                start_price: startPrice,
+                end_price: endPrice,
+                driver,
+            };
+        }
+
+        function geoChipClass(value01) {
+            const pct = (Number(value01) || 0) * 100;
+            if (pct >= 67) return 'geo-chip-high';
+            if (pct >= 34) return 'geo-chip-mid';
+            return 'geo-chip-low';
+        }
+
+        function computeGeoHorizonDriftRows(basePreds, geoPreds) {
+            const safeBase = Array.isArray(basePreds) ? basePreds : [];
+            const safeGeo = Array.isArray(geoPreds) ? geoPreds : [];
+            const baseByDay = new Map();
+            const geoByDay = new Map();
+
+            safeBase.forEach((p, idx) => {
+                const key = Number.isFinite(Number(p?.day)) ? Number(p.day) : (idx + 1);
+                baseByDay.set(key, p);
+            });
+            safeGeo.forEach((p, idx) => {
+                const key = Number.isFinite(Number(p?.day)) ? Number(p.day) : (idx + 1);
+                geoByDay.set(key, p);
+            });
+
+            const points = [{ day: 1, label: 'Day 1' }, { day: 7, label: 'Day 7' }, { day: 21, label: 'Day 21' }];
+            return points.map(point => {
+                const base = baseByDay.get(point.day) || safeBase[point.day - 1];
+                const geo = geoByDay.get(point.day) || safeGeo[point.day - 1];
+                if (!base || !geo) return null;
+                const bp = Number(base.predicted_price);
+                const gp = Number(geo.predicted_price);
+                if (!Number.isFinite(bp) || !Number.isFinite(gp) || bp <= 0) return null;
+                const driftPct = ((gp - bp) / bp) * 100;
+                return {
+                    label: point.label,
+                    baseline: bp,
+                    geo: gp,
+                    driftPct,
+                };
+            }).filter(Boolean);
+        }
+
+        function renderGeoOverlay(viewRes) {
+            const section = document.getElementById('geoOverlaySection');
+            const content = document.getElementById('geoOverlayContent');
+            const badge = document.getElementById('geoModeBadge');
+            if (!section || !content || !badge) return;
+
+            const geoMeta = viewRes.geo_comparison || {};
+            const enabled = Boolean(geoMeta.enabled);
+            badge.innerText = enabled ? 'Geo ON' : 'Geo OFF';
+            badge.className = `geo-mode-badge ${enabled ? 'geo-mode-on' : 'geo-mode-off'}`;
+
+            section.style.display = 'block';
+            if (!enabled) {
+                content.innerHTML = `<div class="geo-overlay-status">Geo overlay disabled for this run.</div>`;
+                return;
+            }
+
+            if (geoMeta.error) {
+                content.innerHTML = `<div class="geo-overlay-status">Enabled but unavailable: ${geoMeta.error}</div>`;
+                return;
+            }
+
+            const applied = Boolean(geoMeta.applied);
+            const features = (geoMeta.geo_features && typeof geoMeta.geo_features === 'object') ? geoMeta.geo_features : null;
+            if (!applied || !features) {
+                content.innerHTML = `<div class="geo-overlay-status">Geo overlay enabled, but no adjustment data was applied in this run.</div>`;
+                return;
+            }
+
+            const summary = (geoMeta.adjustment_summary && typeof geoMeta.adjustment_summary === 'object')
+                ? geoMeta.adjustment_summary
+                : {};
+            const avgAdj = Number(summary.avg_adjustment_pct);
+            const maxAdj = Number(summary.max_abs_adjustment_pct);
+            const avgAdjText = Number.isFinite(avgAdj) ? `${avgAdj >= 0 ? '+' : ''}${avgAdj.toFixed(2)}%` : 'N/A';
+            const maxAdjText = Number.isFinite(maxAdj) ? `${maxAdj.toFixed(2)}%` : 'N/A';
+
+            const chips = [
+                { key: 'geo_conflict_risk', label: 'Conflict Risk' },
+                { key: 'geo_energy_supply_risk', label: 'Energy Supply Risk' },
+                { key: 'geo_regional_tension', label: 'Regional Tension' },
+                { key: 'geo_global_risk_off', label: 'Global Risk-Off' },
+                { key: 'geo_news_volume', label: 'Geo News Volume' },
+            ];
+            const chipsHtml = chips.map(c => {
+                const value = Number(features[c.key] || 0);
+                const pctVal = Math.max(0, Math.min(100, value * 100));
+                return `
+                    <div class="geo-chip ${geoChipClass(value)}">
+                        <div class="geo-chip-label">${c.label}</div>
+                        <div class="geo-chip-value">${pctVal.toFixed(0)}%</div>
+                    </div>
+                `;
+            }).join('');
+
+            const driftRows = computeGeoHorizonDriftRows(
+                viewRes.daily_predictions_without_geo || viewRes.daily_predictions,
+                viewRes.daily_predictions_with_geo || []
+            );
+            const driftHtml = driftRows.length > 0
+                ? `
+                    <table class="geo-horizon-table">
+                        <thead>
+                            <tr><th>Horizon</th><th>Without Geo</th><th>With Geo</th><th>Drift</th></tr>
+                        </thead>
+                        <tbody>
+                            ${driftRows.map(r => `
+                                <tr>
+                                    <td>${r.label}</td>
+                                    <td>PKR ${r.baseline.toFixed(2)}</td>
+                                    <td>PKR ${r.geo.toFixed(2)}</td>
+                                    <td style="color:${r.driftPct >= 0 ? '#10b981' : '#ef4444'};">
+                                        ${r.driftPct >= 0 ? '+' : ''}${r.driftPct.toFixed(2)}%
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `
+                : `<div class="geo-overlay-status">No day-level geo drift points available for this horizon.</div>`;
+
+            content.innerHTML = `
+                <div class="geo-overlay-status">
+                    Status: Enabled and applied.<br>
+                    Net impact: Avg shift ${avgAdjText} | Max absolute shift ${maxAdjText}
+                </div>
+                <div class="geo-chip-grid">${chipsHtml}</div>
+                ${driftHtml}
+            `;
         }
 
         function renderConfidenceChart(canvasId, insights) {
@@ -1642,6 +1939,11 @@
             const conf = insights.confidence;
             const reliableEnd = conf.reliableZoneEndDay;
             const avgConfPct = (conf.avgConfidence * 100).toFixed(0);
+            const tradeSetupGainText = exit.tradeSetupGainPct == null ? 'N/A' : pct(exit.tradeSetupGainPct);
+            const tradeSetupGainColor = exit.tradeSetupGainPct == null
+                ? '#64748b'
+                : (exit.tradeSetupGainPct >= 0 ? 'var(--green)' : 'var(--red)');
+            const bestCaseRangeText = m.bestCaseRangePct == null ? '--' : pct(m.bestCaseRangePct);
 
             // 2a. Entry/Exit Strategy Card
             let html = `
@@ -1659,9 +1961,15 @@
                         <div style="font-size:0.8rem; color:var(--text-muted);">${formatShortDate(exit.date)} (Day ${exit.day})</div>
                     </div>
                     <div>
-                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Potential Gain</div>
-                        <div style="font-size:1.25rem; font-weight:700; color:var(--green);">${pct(exit.potentialGainPct)}</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted);">Entry → Exit</div>
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Trade Setup Gain</div>
+                        <div style="font-size:1.25rem; font-weight:700; color:${tradeSetupGainColor};">${tradeSetupGainText}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">${insights.tradeSetupValid ? 'Entry → Exit (chronological)' : 'No valid rebound setup'}</div>
+                        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">Chronological and realistically executable within forecast horizon.</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Best-Case Range</div>
+                        <div style="font-size:1.25rem; font-weight:700; color:var(--green);">${bestCaseRangeText}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">Predicted Low → High</div>
                     </div>
                     <div>
                         <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Current → Bottom</div>
@@ -1708,7 +2016,7 @@
                 <div class="prediction-table-wrapper" style="margin-top:20px;">
                     <table class="prediction-table">
                         <thead><tr>
-                            <th>Day</th><th>Date</th><th>Price</th><th>Daily %</th><th>Cumulative %</th><th>Confidence</th><th>Reliability</th><th>Williams</th><th>Direction</th>
+                            <th>Day</th><th>Date</th><th>Price</th><th>Daily %</th><th>Cumulative %</th><th>Confidence</th><th>Reliability</th><th title="Williams is a technical oscillator signal.">Williams</th><th title="Model Bias is the model's aggregate directional view.">Model Bias</th>
                         </tr></thead>
                         <tbody>
             `;
@@ -1731,14 +2039,27 @@
                 else if (rel === 'medium') relClass += ' badge-rel-mid';
                 else relClass += ' badge-rel-low';
                 const williams = row.williams_signal != null ? String(row.williams_signal).toUpperCase() : '--';
-                const dir = row.stable_direction != null ? String(row.stable_direction) : '--';
-                const dirArrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : dir;
-                const rowClass = row.day === entryDay ? 'row-entry' : row.day === exitDay ? 'row-exit' : '';
-                const buyBadge = row.day === entryDay ? ' <span class="badge badge-buy">BUY</span>' : '';
-                const sellBadge = row.day === exitDay ? ' <span class="badge badge-sell">SELL</span>' : '';
+                const isEntryDay = row.day === entryDay;
+                const isExitDay = row.day === exitDay;
+                const showNoSetup = !insights.tradeSetupValid && isEntryDay && isExitDay;
+                const rowClass = isEntryDay ? 'row-entry' : (insights.tradeSetupValid && isExitDay ? 'row-exit' : '');
+                const buyBadge = (insights.tradeSetupValid && isEntryDay) ? ' <span class="badge badge-buy">BUY</span>' : '';
+                const sellBadge = (insights.tradeSetupValid && isExitDay) ? ' <span class="badge badge-sell">SELL</span>' : '';
+                const noSetupBadge = showNoSetup ? ' <span class="badge badge-setup-na">NO REBOUND SETUP</span>' : '';
+                const rawModelBias = row.stable_direction != null ? String(row.stable_direction).toUpperCase() : '--';
+                const modelBias = rawModelBias === 'UP'
+                    ? 'BULLISH'
+                    : rawModelBias === 'DOWN'
+                        ? 'BEARISH'
+                        : rawModelBias;
+                const modelBiasClass = modelBias.includes('BULL')
+                    ? 'model-bias-badge model-bias-bullish'
+                    : modelBias.includes('BEAR')
+                        ? 'model-bias-badge model-bias-bearish'
+                        : 'model-bias-badge model-bias-neutral';
                 const dailyColor = dailyPct >= 0 ? 'text-green' : 'text-red';
                 html += `<tr class="${rowClass}">
-                    <td>${row.day}${buyBadge}${sellBadge}</td>
+                    <td>${row.day}${buyBadge}${sellBadge}${noSetupBadge}</td>
                     <td>${formatShortDate(row.date)}</td>
                     <td>PKR ${fmt(row.predicted_price)}</td>
                     <td class="${dailyColor}">${pct(dailyPct)}</td>
@@ -1746,7 +2067,7 @@
                     <td><span class="${confClass}">${confVal != null ? confVal.toFixed(0) + '%' : '--'}</span></td>
                     <td><span class="${relClass}">${row.reliability || '--'}</span></td>
                     <td>${williams}</td>
-                    <td>${dirArrow}</td>
+                    <td><span class="${modelBiasClass}">${modelBias}</span></td>
                 </tr>`;
             });
             html += '</tbody></table></div>';
@@ -1754,10 +2075,16 @@
             renderConfidenceChart('confidenceChartCanvas', insights);
 
             // 2e. Monthly Forecast (if present)
-            const monthly = res.monthly_forecast;
-            if (monthly && monthly.length > 0) {
-                const best = monthly.reduce((a, b) => ((a.expected_return_pct || 0) > (b.expected_return_pct || 0)) ? a : b);
-                const worst = monthly.reduce((a, b) => ((a.expected_return_pct || 0) < (b.expected_return_pct || 0)) ? a : b);
+            const monthlyRaw = Array.isArray(res.monthly_forecast) ? res.monthly_forecast : [];
+            const monthly = monthlyRaw.map(normalizeMonthlyForecastItem).filter(Boolean);
+            if (monthly.length > 0) {
+                const comparable = monthly.filter(mo => mo.change_pct != null);
+                const best = comparable.length > 0
+                    ? comparable.reduce((a, b) => (a.change_pct > b.change_pct ? a : b))
+                    : monthly[0];
+                const worst = comparable.length > 0
+                    ? comparable.reduce((a, b) => (a.change_pct < b.change_pct ? a : b))
+                    : monthly[monthly.length - 1];
                 let monthHtml = `
                 <div style="margin-top:24px;">
                     <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:12px;">📅 Monthly Forecast</h3>
@@ -1765,24 +2092,28 @@
                         <div class="sentiment-card" style="padding:12px;">
                             <div style="font-size:0.75rem; font-weight:700; color:var(--green);">Best month</div>
                             <div style="font-size:1rem; font-weight:700;">${best.month_name || best.month || '--'}</div>
-                            <div style="font-size:0.85rem;">${(best.expected_return_pct != null ? (best.expected_return_pct >= 0 ? '+' : '') + Number(best.expected_return_pct).toFixed(2) + '%' : '--')}</div>
+                            <div style="font-size:0.85rem;">${(best.change_pct != null ? (best.change_pct >= 0 ? '+' : '') + Number(best.change_pct).toFixed(2) + '%' : 'Data unavailable for this month')}</div>
                         </div>
                         <div class="sentiment-card" style="padding:12px;">
                             <div style="font-size:0.75rem; font-weight:700; color:var(--red);">Worst month</div>
                             <div style="font-size:1rem; font-weight:700;">${worst.month_name || worst.month || '--'}</div>
-                            <div style="font-size:0.85rem;">${(worst.expected_return_pct != null ? (worst.expected_return_pct >= 0 ? '+' : '') + Number(worst.expected_return_pct).toFixed(2) + '%' : '--')}</div>
+                            <div style="font-size:0.85rem;">${(worst.change_pct != null ? (worst.change_pct >= 0 ? '+' : '') + Number(worst.change_pct).toFixed(2) + '%' : 'Data unavailable for this month')}</div>
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
                 `;
                 monthly.forEach(mo => {
-                    const trend = (mo.expected_return_pct || 0) >= 0 ? '📈' : '📉';
-                    const pctStr = mo.expected_return_pct != null ? (mo.expected_return_pct >= 0 ? '+' : '') + Number(mo.expected_return_pct).toFixed(2) + '%' : '--';
+                    const trend = mo.trend === 'BULLISH' ? '📈' : mo.trend === 'BEARISH' ? '📉' : '➡️';
+                    const pctStr = mo.change_pct != null
+                        ? (mo.change_pct >= 0 ? '+' : '') + Number(mo.change_pct).toFixed(2) + '%'
+                        : 'Data unavailable for this month';
+                    const startText = mo.start_price != null ? 'PKR ' + Number(mo.start_price).toFixed(2) : 'Data unavailable for this month';
+                    const endText = mo.end_price != null ? 'PKR ' + Number(mo.end_price).toFixed(2) : 'Data unavailable for this month';
                     monthHtml += `
                         <div class="sentiment-card" style="padding:12px;">
                             <div style="font-weight:700; margin-bottom:6px;">${trend} ${mo.month_name || mo.month || 'Month'}</div>
-                            <div style="font-size:0.85rem; color:var(--text-muted);">${pctStr} · Start: ${mo.start_price != null ? 'PKR ' + Number(mo.start_price).toFixed(2) : '--'} → End: ${mo.end_price != null ? 'PKR ' + Number(mo.end_price).toFixed(2) : '--'}</div>
-                            <div style="font-size:0.8rem; margin-top:6px;">${(mo.primary_driver || mo.reasoning || '--')}</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted);">${pctStr} · Start: ${startText} → End: ${endText}</div>
+                            <div style="font-size:0.8rem; margin-top:6px;">${mo.driver || 'Data unavailable for this month'}</div>
                         </div>`;
                 });
                 monthHtml += '</div></div>';
@@ -2144,6 +2475,8 @@
                 } else {
                     document.getElementById('neutralSignals').style.display = 'none';
                 }
+
+                renderGeoOverlay(viewRes);
             } else {
                 document.getElementById('predictionSignalsCard').style.display = 'none';
             }

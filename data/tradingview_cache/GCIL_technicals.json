@@ -1,0 +1,33 @@
+{
+  "symbol": "GCIL",
+  "cached_at": "2026-03-02T06:58:37.109425",
+  "data": {
+    "recommendation_buy": 0,
+    "recommendation_sell": 0,
+    "recommendation_neutral": 0,
+    "overall_recommendation": "NEUTRAL",
+    "rsi_14": 38.39,
+    "stochastic_k": 23.2,
+    "cci": -81.31,
+    "adx": 46.49,
+    "awesome_oscillator": -5.81,
+    "momentum_10": -3.7,
+    "macd_level": -1.96,
+    "stochastic_rsi": 48.49,
+    "williams_r": -60.77,
+    "bull_bear_power": -2.96,
+    "ultimate_oscillator": 42.22,
+    "ema_10": 28.25,
+    "sma_10": 28.1,
+    "ema_20": 29.9,
+    "sma_20": 30.57,
+    "ema_30": 30.95,
+    "sma_30": 32.02,
+    "ema_50": 31.98,
+    "sma_50": 33.12,
+    "ema_100": 31.97,
+    "sma_100": 33.15,
+    "vwma": 30.75,
+    "hma": 26.38
+  }
+}
