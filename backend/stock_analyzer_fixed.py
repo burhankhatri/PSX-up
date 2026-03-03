@@ -1438,19 +1438,26 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 "geo": "With Geo Features",
             },
         }
+        recovery_analysis = {}
         if geo_comparison["enabled"]:
             try:
                 from backend.sentiment_math import apply_adjustments_to_predictions
                 from backend.geopolitical_features import (
                     get_geopolitical_features_from_news,
                     build_geopolitical_daily_adjustments,
+                    detect_geopolitical_shocks,
                 )
                 news_items = (sentiment_result or {}).get("news_items", [])
                 geo_features = get_geopolitical_features_from_news(news_items, symbol)
+
+                # Shock detection – emergency multiplier for extreme events
+                shock_data = detect_geopolitical_shocks(news_items, symbol)
+
                 geo_adjustment_data = build_geopolitical_daily_adjustments(
                     geo_features,
                     prediction_length=len(predictions_without_geo),
                     symbol=symbol,
+                    shock_data=shock_data,
                 )
 
                 current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
@@ -1464,8 +1471,28 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                         "applied": bool(predictions_with_geo),
                         "geo_features": geo_features,
                         "adjustment_summary": geo_adjustment_data.get("summary", {}),
+                        "shock_data": shock_data,
                     }
                 )
+
+                # Recovery analysis payload (always return a structured status)
+                try:
+                    from backend.recovery_predictor import get_recovery_analysis
+                    recent_high = float(df["Close"].max()) if "Close" in df.columns else current_close
+                    recovery_analysis = get_recovery_analysis(
+                        symbol=symbol,
+                        current_price=current_close,
+                        recent_high=recent_high,
+                        geo_shock_data=shock_data,
+                    )
+                    if shock_data.get("shock_detected"):
+                        await websocket.send_json({
+                            'stage': 'forecasting',
+                            'progress': 91,
+                            'message': f'🚨 Geopolitical shock detected ({shock_data["max_severity"]:.1f} severity) – generating recovery scenarios'
+                        })
+                except Exception as rec_err:
+                    recovery_analysis = {"enabled": False, "error": str(rec_err)[:200]}
             except Exception as geo_err:
                 predictions_with_geo = []
                 geo_comparison.update(
@@ -1596,6 +1623,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'daily_predictions_without_geo': predictions_without_geo,
                 'daily_predictions_with_geo': predictions_with_geo,
                 'geo_comparison': geo_comparison,
+                'recovery_analysis': recovery_analysis,
                 'monthly_forecast': monthly_forecast,  # 🆕 Detailed monthly analysis with reasoning
                 'forecast_summary': forecast_summary,  # 🆕 Overall forecast summary
                 'historical_data': historical_data, # History for charting
@@ -1634,6 +1662,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     'daily_predictions_without_geo': predictions_without_geo,
                     'daily_predictions_with_geo': predictions_with_geo,
                     'geo_comparison': geo_comparison,
+                    'recovery_analysis': recovery_analysis,
                     'daily_predictions_count': len(predictions_without_geo),
                     'tuning': tuning_meta,
                     'shadow_comparison': shadow_comparison,

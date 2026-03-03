@@ -513,7 +513,7 @@
 
         .chart-comparison-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 16px;
         }
 
@@ -540,6 +540,168 @@
             .chart-comparison-grid {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* Geo Risk Alert Card */
+        .geo-risk-alert {
+            display: none;
+            background: linear-gradient(135deg, #fef2f2, #fff1f2);
+            border: 1px solid #fecaca;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
+        .geo-risk-alert.active { display: block; }
+        .geo-risk-alert-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .geo-risk-alert-header .shock-icon {
+            font-size: 1.4rem;
+        }
+        .geo-risk-alert-header h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #991b1b;
+        }
+        .severity-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .severity-critical { background: #dc2626; color: white; }
+        .severity-severe { background: #f97316; color: white; }
+        .severity-elevated { background: #eab308; color: #422006; }
+        .geo-risk-events {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .geo-risk-event-tag {
+            background: rgba(220, 38, 38, 0.08);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #991b1b;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 500;
+        }
+        .geo-risk-meters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+        }
+        .geo-meter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+        .geo-meter-bar {
+            flex: 1;
+            height: 5px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .geo-meter-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        /* Recovery Scenarios Panel */
+        .recovery-panel {
+            display: none;
+            margin-top: 20px;
+        }
+        .recovery-panel.active { display: block; }
+        .recovery-panel h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .recovery-scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 900px) {
+            .recovery-scenarios-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .recovery-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid #eef2f7;
+        }
+        .recovery-card.bull { border-top: 3px solid #10b981; }
+        .recovery-card.base { border-top: 3px solid #f59e0b; }
+        .recovery-card.bear { border-top: 3px solid #ef4444; }
+        .recovery-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .recovery-card-label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .recovery-confidence {
+            font-size: 0.68rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .recovery-targets {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .recovery-target-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+        }
+        .recovery-target-row .label { color: #9ca3af; }
+        .recovery-target-row .value { font-weight: 600; }
+        .recovery-target-row .value.positive { color: #10b981; }
+        .recovery-target-row .value.negative { color: #ef4444; }
+        .recovery-condition {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            font-style: italic;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .recovery-precedent {
+            font-size: 0.68rem;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+        .recovery-disclaimer {
+            font-size: 0.68rem;
+            color: #9ca3af;
+            margin-top: 12px;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 8px;
+            line-height: 1.4;
         }
 
         /* Sentiment Card */
@@ -1179,6 +1341,17 @@
                                 <button class="time-btn" data-days="9999" onclick="filterChart(9999)">ALL</button>
                             </div>
                         </div>
+                        <!-- Geo Risk Alert Card -->
+                        <div class="geo-risk-alert" id="geoRiskAlert">
+                            <div class="geo-risk-alert-header">
+                                <span class="shock-icon">🚨</span>
+                                <h4 id="geoRiskTitle">Geopolitical Shock Detected</h4>
+                                <span class="severity-badge" id="geoSeverityBadge">CRITICAL</span>
+                            </div>
+                            <div class="geo-risk-events" id="geoRiskEvents"></div>
+                            <div class="geo-risk-meters" id="geoRiskMeters"></div>
+                        </div>
+
                         <div class="chart-comparison-grid">
                             <div class="chart-panel">
                                 <div class="chart-panel-title">Without Geo Features</div>
@@ -1192,6 +1365,13 @@
                                     <canvas id="geoChart"></canvas>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Recovery Scenarios Panel -->
+                        <div class="recovery-panel" id="recoveryPanel">
+                            <h3>Recovery Scenarios</h3>
+                            <div class="recovery-scenarios-grid" id="recoveryScenariosGrid"></div>
+                            <div class="recovery-disclaimer" id="recoveryDisclaimer"></div>
                         </div>
                     </div>
 
@@ -2345,8 +2525,25 @@
         }
 
         function renderResults(res) {
+            console.log('renderResults called with data:', res);
+            
+            // Safety check for required fields
+            if (!res || !res.symbol) {
+                console.error('Invalid result data:', res);
+                alert('Error: Invalid prediction data received');
+                return;
+            }
+            
             const baselineSource = res.daily_predictions_without_geo || res.daily_predictions || [];
             const geoSource = Array.isArray(res.daily_predictions_with_geo) ? res.daily_predictions_with_geo : [];
+            
+            // Ensure we have predictions
+            if (baselineSource.length === 0) {
+                console.error('No predictions found in data');
+                alert('Error: No predictions available for this stock');
+                return;
+            }
+            
             const displayPreds = pickDisplayPredictions(baselineSource, res.current_price);
             const displayGeoPreds = pickDisplayPredictions(geoSource, res.current_price);
             const viewRes = {
@@ -2355,6 +2552,9 @@
                 daily_predictions_without_geo: displayPreds,
                 daily_predictions_with_geo: displayGeoPreds,
             };
+            
+            console.log('Displaying predictions for:', viewRes.symbol, 'with', displayPreds.length, 'predictions');
+            
             document.getElementById('resultsArea').style.display = 'block';
             scrollToTopOfPage();
 
@@ -2486,6 +2686,12 @@
             globalPredictionsWithoutGeo = viewRes.daily_predictions_without_geo || viewRes.daily_predictions || [];
             globalPredictionsWithGeo = viewRes.daily_predictions_with_geo || [];
 
+            // Render Geo Risk Alert Card
+            renderGeoRiskAlert(viewRes);
+
+            // Render Recovery Scenarios
+            renderRecoveryPanel(viewRes);
+
             renderInsightsPanel(viewRes, 'insightsPanel');
             filterChart(365); // Default 1 year
         }
@@ -2571,6 +2777,260 @@
             return `${days}d ago`;
         }
 
+        function renderGeoRiskAlert(res) {
+            const alertEl = document.getElementById('geoRiskAlert');
+            if (!alertEl) return;
+
+            const geo = res.geo_comparison || {};
+            const shock = geo.shock_data || {};
+            const geoFeatures = geo.geo_features || {};
+            const summary = geo.adjustment_summary || {};
+
+            if (!shock.shock_detected) {
+                alertEl.classList.remove('active');
+                return;
+            }
+
+            alertEl.classList.add('active');
+
+            // Severity badge
+            const badge = document.getElementById('geoSeverityBadge');
+            const maxSev = shock.max_severity || 0;
+            if (maxSev >= 3.0) {
+                badge.textContent = 'CRITICAL';
+                badge.className = 'severity-badge severity-critical';
+            } else if (maxSev >= 2.0) {
+                badge.textContent = 'SEVERE';
+                badge.className = 'severity-badge severity-severe';
+            } else {
+                badge.textContent = 'ELEVATED';
+                badge.className = 'severity-badge severity-elevated';
+            }
+
+            // Title with multiplier
+            const titleEl = document.getElementById('geoRiskTitle');
+            titleEl.textContent = `Geopolitical Shock Detected (${shock.emergency_multiplier}x risk multiplier)`;
+
+            // Shock event tags
+            const eventsEl = document.getElementById('geoRiskEvents');
+            const events = shock.shock_events || [];
+            eventsEl.innerHTML = events.slice(0, 8).map(e =>
+                `<span class="geo-risk-event-tag">${e.pattern} (${e.severity.toFixed(1)})</span>`
+            ).join('');
+
+            // Geo feature meters
+            const metersEl = document.getElementById('geoRiskMeters');
+            const meters = [
+                { label: 'Conflict', key: 'geo_conflict_risk', color: '#dc2626' },
+                { label: 'Energy', key: 'geo_energy_supply_risk', color: '#f97316' },
+                { label: 'Regional', key: 'geo_regional_tension', color: '#eab308' },
+                { label: 'Risk-Off', key: 'geo_global_risk_off', color: '#8b5cf6' },
+                { label: 'Volume', key: 'geo_news_volume', color: '#3b82f6' },
+            ];
+            metersEl.innerHTML = meters.map(m => {
+                const val = Math.round((geoFeatures[m.key] || 0) * 100);
+                return `<div class="geo-meter">
+                    <span>${m.label}</span>
+                    <div class="geo-meter-bar">
+                        <div class="geo-meter-fill" style="width:${val}%;background:${m.color}"></div>
+                    </div>
+                    <span style="font-weight:600;min-width:28px;text-align:right">${val}%</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderRecoveryPanel(res) {
+            const panel = document.getElementById('recoveryPanel');
+            if (!panel) return;
+
+            const recovery = res.recovery_analysis || {};
+            const grid = document.getElementById('recoveryScenariosGrid');
+            const disclaimerEl = document.getElementById('recoveryDisclaimer');
+            if (!recovery.enabled || !recovery.scenarios) {
+                const reasonText = recovery.reason || recovery.error || '';
+                if (!reasonText) {
+                    panel.classList.remove('active');
+                    return;
+                }
+
+                panel.classList.add('active');
+                const oldBanner = panel.querySelector('.trajectory-banner');
+                if (oldBanner) oldBanner.remove();
+                const oldCrashInfo = panel.querySelector('.recovery-crash-info');
+                if (oldCrashInfo) oldCrashInfo.remove();
+
+                if (grid) {
+                    grid.innerHTML = `<div class="recovery-card base" style="grid-column:1/-1;">
+                        <div class="recovery-card-header">
+                            <span class="recovery-card-label">⚖️ Recovery Scenarios Unavailable</span>
+                        </div>
+                        <div class="recovery-condition">${reasonText}</div>
+                        <div class="recovery-precedent">Scenarios appear automatically when a geopolitical shock is detected for this run.</div>
+                    </div>`;
+                }
+                if (disclaimerEl) disclaimerEl.textContent = '';
+                return;
+            }
+
+            panel.classList.add('active');
+
+            // Trajectory status header
+            const traj = recovery.trajectory || {};
+            const trajStatus = traj.status || 'stalemate';
+            const trajMap = {
+                'ceasefire': { emoji: '🕊️', label: 'Ceasefire/Resolution Detected', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+                'de_escalating': { emoji: '📉', label: 'De-escalation Signals', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+                'escalating': { emoji: '🔺', label: 'Active Escalation', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+                'stalemate': { emoji: '⚖️', label: 'Stalemate / Unclear', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+            };
+            const trajInfo = trajMap[trajStatus] || trajMap['stalemate'];
+
+            // Build trajectory signals tags
+            let trajSignalsHtml = '';
+            const resSigs = traj.resolution_signals || [];
+            const escSigs = traj.escalation_signals || [];
+            if (resSigs.length > 0) {
+                trajSignalsHtml += resSigs.slice(0, 3).map(s =>
+                    `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;font-size:0.68rem;background:rgba(16,185,129,0.1);color:#059669;">+${s.pattern}</span>`
+                ).join('');
+            }
+            if (escSigs.length > 0) {
+                trajSignalsHtml += escSigs.slice(0, 3).map(s =>
+                    `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;font-size:0.68rem;background:rgba(239,68,68,0.1);color:#dc2626;">-${s.pattern}</span>`
+                ).join('');
+            }
+
+            // Insert trajectory banner before the grid
+            let trajBanner = panel.querySelector('.trajectory-banner');
+            if (!trajBanner) {
+                trajBanner = document.createElement('div');
+                trajBanner.className = 'trajectory-banner';
+                const grid = document.getElementById('recoveryScenariosGrid');
+                grid.parentNode.insertBefore(trajBanner, grid);
+            }
+            // LLM assessment block (shown when hybrid assessment available)
+            const llmData = traj.llm_assessment || null;
+            const assessMethod = traj.assessment_method || 'keyword_only';
+            let llmHtml = '';
+            if (llmData) {
+                const eventsHtml = (llmData.key_events || []).slice(0, 3).map(e => {
+                    const sigColor = e.significance === 'critical' ? '#dc2626' : e.significance === 'major' ? '#f59e0b' : '#6b7280';
+                    return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;font-size:0.68rem;background:${sigColor}18;color:${sigColor};border:1px solid ${sigColor}33;">${e.event}</span>`;
+                }).join('');
+
+                const ceasefireBar = Math.round((llmData.ceasefire_probability || 0) * 100);
+                const impactPct = llmData.market_impact_pct || 0;
+                const impactColor = impactPct >= 0 ? '#10b981' : '#ef4444';
+                const impactSign = impactPct >= 0 ? '+' : '';
+
+                llmHtml = `
+                    <div style="flex-basis:100%;margin-top:8px;padding:8px 12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);border-radius:8px;">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                            <span style="font-size:0.68rem;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;">AI Assessment</span>
+                            <span style="font-size:0.62rem;color:#9ca3af;">(${llmData.llm_source || 'LLM'})</span>
+                            <span style="margin-left:auto;font-size:0.68rem;font-weight:600;color:${impactColor};">Next-day: ${impactSign}${impactPct.toFixed(1)}%</span>
+                        </div>
+                        <div style="font-size:0.72rem;color:#374151;line-height:1.4;margin-bottom:6px;">${llmData.reasoning || ''}</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <span style="font-size:0.65rem;color:#6b7280;">Severity: <b>${llmData.severity}/10</b></span>
+                            <span style="font-size:0.65rem;color:#6b7280;">Ceasefire prob:</span>
+                            <div style="flex:1;max-width:100px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                                <div style="width:${ceasefireBar}%;height:100%;background:#10b981;border-radius:3px;"></div>
+                            </div>
+                            <span style="font-size:0.65rem;color:#6b7280;">${ceasefireBar}%</span>
+                        </div>
+                        ${eventsHtml ? `<div style="margin-top:4px;">${eventsHtml}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            const methodBadge = assessMethod === 'hybrid'
+                ? `<span style="font-size:0.6rem;padding:1px 6px;background:rgba(99,102,241,0.1);color:#6366f1;border-radius:4px;margin-left:4px;">AI+Keywords</span>`
+                : `<span style="font-size:0.6rem;padding:1px 6px;background:rgba(107,114,128,0.1);color:#6b7280;border-radius:4px;margin-left:4px;">Keywords</span>`;
+
+            trajBanner.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-bottom:12px;background:${trajInfo.bg};border:1px solid ${trajInfo.color}22;flex-wrap:wrap;`;
+            trajBanner.innerHTML = `
+                <span style="font-size:1.2rem;">${trajInfo.emoji}</span>
+                <span style="font-weight:700;font-size:0.85rem;color:${trajInfo.color};">${trajInfo.label}</span>
+                <span style="font-size:0.72rem;color:#6b7280;">(score: ${traj.score || 0})</span>
+                ${methodBadge}
+                <div style="flex-basis:100%;margin-top:4px;">${trajSignalsHtml}</div>
+                ${llmHtml}
+            `;
+
+            const scenarios = recovery.scenarios;
+            const currentPrice = recovery.current_price || 0;
+
+            const cards = ['bull', 'base', 'bear'].map(key => {
+                const s = scenarios[key];
+                if (!s) return '';
+
+                const targets = s.price_targets || {};
+                const emoji = key === 'bull' ? '🟢' : key === 'base' ? '🟡' : '🔴';
+
+                const formatPct = (val) => {
+                    const v = Number(val);
+                    const sign = v >= 0 ? '+' : '';
+                    const cls = v >= 0 ? 'positive' : 'negative';
+                    return `<span class="value ${cls}">${sign}${v.toFixed(2)}%</span>`;
+                };
+
+                const formatPrice = (val) => {
+                    return val ? `PKR ${Number(val).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '-';
+                };
+
+                return `<div class="recovery-card ${key}">
+                    <div class="recovery-card-header">
+                        <span class="recovery-card-label">${emoji} ${s.label || key}</span>
+                        <span class="recovery-confidence">${Math.round((s.confidence || 0) * 100)}% likely</span>
+                    </div>
+                    <div class="recovery-targets">
+                        <div class="recovery-target-row">
+                            <span class="label">Day 1</span>
+                            ${formatPct(s.day1_pct)}
+                            <span class="label">${formatPrice(targets.day1)}</span>
+                        </div>
+                        <div class="recovery-target-row">
+                            <span class="label">Day 3</span>
+                            ${formatPct(s.day3_pct)}
+                            <span class="label">${formatPrice(targets.day3)}</span>
+                        </div>
+                        <div class="recovery-target-row">
+                            <span class="label">Day 7</span>
+                            ${formatPct(s.day7_pct)}
+                            <span class="label">${formatPrice(targets.day7)}</span>
+                        </div>
+                    </div>
+                    <div class="recovery-condition">${s.condition || ''}</div>
+                    <div class="recovery-precedent">Based on: ${s.precedent_recovery || s.precedent || ''}</div>
+                </div>`;
+            }).join('');
+
+            grid.innerHTML = cards;
+
+            // Disclaimer
+            disclaimerEl.textContent = recovery.disclaimer || '';
+
+            // Add crash info header
+            const crashInfo = `Crash: ${recovery.crash_pct?.toFixed(1)}% from recent high (${formatPriceShort(recovery.recent_high)}) → Current: ${formatPriceShort(recovery.current_price)}`;
+            const existingHeader = panel.querySelector('.recovery-crash-info');
+            if (existingHeader) existingHeader.textContent = crashInfo;
+            else {
+                const h = document.createElement('div');
+                h.className = 'recovery-crash-info';
+                h.style.cssText = 'font-size:0.78rem;color:#6b7280;margin-bottom:12px;';
+                h.textContent = crashInfo;
+                grid.parentNode.insertBefore(h, grid);
+            }
+        }
+
+        function formatPriceShort(val) {
+            if (!val) return '-';
+            const n = Number(val);
+            if (n >= 100000) return `PKR ${(n / 1000).toFixed(0)}K`;
+            return `PKR ${n.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+        }
+
         function buildComparisonSeries(filteredHistory, predictions, predictionLabels) {
             const historyLabels = filteredHistory.map(h => h.Date);
             const historyPrices = filteredHistory.map(h => {
@@ -2595,7 +3055,14 @@
                 : [...predPrices];
 
             const numericValues = [...historyPrices, ...predPrices, lastHistPrice].filter(Number.isFinite);
-            return { allLabels, datasetHistory, datasetPred, numericValues };
+            return {
+                allLabels,
+                datasetHistory,
+                datasetPred,
+                numericValues,
+                lastKnownPrice: Number.isFinite(lastHistPrice) ? lastHistPrice : null,
+                historyLength: historyLabels.length
+            };
         }
 
         function computeSharedYRange(seriesList) {
@@ -2625,6 +3092,24 @@
             const gradPred = ctx.createLinearGradient(0, 0, 0, 400);
             gradPred.addColorStop(0, forecastTopColor);
             gradPred.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+
+            const fmtPrice = (v) => {
+                const n = Number(v);
+                if (!Number.isFinite(n)) return 'N/A';
+                return `PKR ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            };
+
+            const deltaVsLastKnown = (v) => {
+                const price = Number(v);
+                const anchor = Number(series.lastKnownPrice);
+                if (!Number.isFinite(price) || !Number.isFinite(anchor) || anchor <= 0) return null;
+                const pct = ((price - anchor) / anchor) * 100;
+                return {
+                    pct,
+                    sign: pct >= 0 ? '+' : '',
+                    direction: pct >= 0 ? 'UP' : 'DOWN',
+                };
+            };
 
             return new Chart(ctx, {
                 type: 'line',
@@ -2658,7 +3143,33 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => {
+                                    if (!items || items.length === 0) return '';
+                                    const item = items[0];
+                                    const idx = item.dataIndex;
+                                    const dateLabel = series.allLabels[idx] || '';
+                                    const forecastDay = idx - Math.max(0, (series.historyLength || 1) - 1);
+                                    if (forecastDay > 0) return `${dateLabel} (Day ${forecastDay})`;
+                                    return String(dateLabel);
+                                },
+                                label: (context) => {
+                                    const value = context.parsed && Number.isFinite(context.parsed.y)
+                                        ? context.parsed.y
+                                        : null;
+                                    if (!Number.isFinite(value)) return '';
+                                    const delta = deltaVsLastKnown(value);
+                                    const line1 = `${context.dataset.label}: ${fmtPrice(value)}`;
+                                    if (!delta) return line1;
+                                    const line2 = `vs last close: ${delta.sign}${delta.pct.toFixed(2)}% (${delta.direction})`;
+                                    return [line1, line2];
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         x: { display: false },
                         y: {
@@ -2744,22 +3255,43 @@
         }
 
         async function loadFromFile(filename) {
+            console.log('loadFromFile called with:', filename);
             switchView('dashboard');
-            if (!filename) return;
+            if (!filename) {
+                console.warn('loadFromFile: no filename provided');
+                return;
+            }
+            
+            showLoader(true, 'Loading saved analysis...', `Loading ${filename}`);
+            
             try {
-                const res = await fetch(`${API_BASE}/api/history/${encodeURIComponent(filename)}`);
+                const url = `${API_BASE}/api/history/${encodeURIComponent(filename)}`;
+                console.log('Fetching from:', url);
+                
+                const res = await fetch(url);
                 const data = await res.json();
+                
+                console.log('Response status:', res.status);
+                console.log('Response data:', data);
+                
                 if (!res.ok) {
                     const msg = Array.isArray(data.detail) ? data.detail.join(' ') : (data.detail || 'File not found');
+                    showLoader(false);
                     alert('Could not load analysis: ' + msg);
                     return;
                 }
                 if (!data.symbol || !Array.isArray(data.daily_predictions)) {
+                    showLoader(false);
                     alert('Invalid analysis data (missing symbol or predictions).');
+                    console.error('Invalid data structure:', data);
                     return;
                 }
+                
+                showLoader(false);
                 renderResults(data);
+                console.log('Successfully rendered results for:', data.symbol);
             } catch (e) {
+                showLoader(false);
                 console.error('Error loading saved analysis:', e);
                 alert('Error loading saved analysis. Check console and ensure the backend is running at ' + API_BASE);
             }
@@ -3575,13 +4107,24 @@
 
         (function attachSidebarHistoryClick() {
             const list = document.getElementById('historyList');
-            if (!list) return;
+            if (!list) {
+                console.warn('historyList element not found!');
+                return;
+            }
+            console.log('Attaching history click listeners to:', list);
+            
             list.addEventListener('click', function(e) {
+                console.log('Click detected on historyList, target:', e.target);
                 const item = e.target.closest('.sidebar-history-item[data-fileuri]');
+                console.log('Found item:', item);
                 if (!item) return;
                 const fileUri = item.getAttribute('data-fileuri');
-                if (fileUri) loadFromFile(decodeURIComponent(fileUri));
+                console.log('File URI:', fileUri);
+                if (fileUri) {
+                    loadFromFile(decodeURIComponent(fileUri));
+                }
             });
+            
             list.addEventListener('keydown', function(e) {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 const item = e.target.closest('.sidebar-history-item[data-fileuri]');
@@ -3590,6 +4133,8 @@
                 const fileUri = item.getAttribute('data-fileuri');
                 if (fileUri) loadFromFile(decodeURIComponent(fileUri));
             });
+            
+            console.log('History click listeners attached successfully');
         })();
 
         initGeoFeatureToggle();

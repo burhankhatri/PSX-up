@@ -1,0 +1,27 @@
+{
+  "symbol": "TEST",
+  "compared_at": "2026-03-03T03:52:11.470524",
+  "enabled": true,
+  "status": "ok",
+  "geo_features": {
+    "geo_conflict_risk": 0.8,
+    "geo_energy_supply_risk": 0.2,
+    "geo_regional_tension": 0.7,
+    "geo_global_risk_off": 0.6,
+    "geo_news_volume": 0.5
+  },
+  "upgraded_count": 3,
+  "drift": {
+    "day_1": {
+      "baseline_price": 100.0,
+      "upgraded_price": 99.0,
+      "drift_pct": -1.0,
+      "direction_match": true
+    }
+  },
+  "summary": {
+    "median_drift_pct": 1.0,
+    "max_drift_pct": 1.0,
+    "direction_agreement_pct": 100.0
+  }
+}

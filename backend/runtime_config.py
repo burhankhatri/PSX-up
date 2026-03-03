@@ -55,6 +55,7 @@ class RuntimeConfig:
 
     # --- Geopolitical features ---
     enable_geo_features: bool = False
+    enable_recovery_predictor: bool = True
 
     # --- Sentiment adjustment mode ---
     sentiment_adjust_mode: str = "legacy"  # legacy | date_aware
@@ -101,6 +102,7 @@ def load_runtime_config() -> RuntimeConfig:
             "MODEL_VARIANT", "baseline", ("baseline", "shadow", "upgraded")
         ),
         enable_geo_features=_env_flag("ENABLE_GEO_FEATURES", False),
+        enable_recovery_predictor=_env_flag("ENABLE_RECOVERY_PREDICTOR", True),
         sentiment_adjust_mode=_env_str(
             "SENTIMENT_ADJUST_MODE", "legacy", ("legacy", "date_aware")
         ),
