@@ -27,12 +27,16 @@ from typing import Dict, List, Optional
 try:
     from backend.energy_shock_features import (
         ENERGY_SHOCK_SYMBOLS,
+        parse_local_fuel_price_delta,
+        score_circular_debt_signal,
         has_regional_war_terms,
         is_energy_supply_shock_text,
     )
 except ImportError:
     from energy_shock_features import (  # type: ignore
         ENERGY_SHOCK_SYMBOLS,
+        parse_local_fuel_price_delta,
+        score_circular_debt_signal,
         has_regional_war_terms,
         is_energy_supply_shock_text,
     )
@@ -111,6 +115,39 @@ SYMBOL_SECTOR: Dict[str, str] = {
 }
 
 CACHE_DIR = Path(__file__).parent.parent / "data" / "news_cache"
+UPSTREAM_EP_SYMBOLS = frozenset({"OGDC", "PPL", "POL", "MARI"})
+
+POSITIVE_OIL_CONTEXT_TERMS = (
+    "oil prices rise",
+    "oil prices rising",
+    "oil prices higher",
+    "oil prices surge",
+    "oil prices jump",
+    "crude rises",
+    "crude gains",
+    "crude jumps",
+    "brent rises",
+    "brent jumps",
+    "brent surges",
+    "wti rises",
+    "wti jumps",
+    "wti surges",
+)
+
+UPSTREAM_PAYMENT_RELIEF_TERMS = (
+    "payment release",
+    "payment released",
+    "payments released",
+    "payment to ogdc",
+    "payment to ppl",
+    "payment to mari",
+    "payment to pol",
+    "receivables cleared",
+    "cash release",
+    "receives rs",
+    "received rs",
+    "debt resolution",
+)
 
 # ---------------------------------------------------------------------------
 # Shock event patterns – severity tiers for emergency detection
@@ -808,11 +845,134 @@ def get_geopolitical_features_for_symbol(
         return neutral_geopolitical_features()
 
 
+def default_geo_interpretation(enabled: bool = True) -> Dict[str, object]:
+    return {
+        "sector_interpretation": "generic",
+        "polarity": "neutral" if enabled else "disabled",
+        "bullish_for_upstream": False,
+        "tailwind_score": 0.0,
+        "cashflow_support_score": 0.0,
+        "reason": (
+            "No sector-specific geopolitical interpretation applied."
+            if enabled
+            else "Geo overlay disabled for this run."
+        ),
+    }
+
+
+def _has_positive_oil_context(text: str) -> bool:
+    text = (text or "").lower()
+    return any(term in text for term in POSITIVE_OIL_CONTEXT_TERMS)
+
+
+def _has_payment_relief_context(text: str) -> bool:
+    text = (text or "").lower()
+    return any(term in text for term in UPSTREAM_PAYMENT_RELIEF_TERMS)
+
+
+def build_geo_interpretation(
+    news_items: List[Dict],
+    geo_features: Optional[Dict[str, float]] = None,
+    shock_data: Optional[Dict] = None,
+    symbol: Optional[str] = None,
+) -> Dict[str, object]:
+    """Build sector interpretation metadata shared by UI and geo overlay math."""
+    interpretation = default_geo_interpretation(enabled=True)
+    symbol_upper = (symbol or "").upper()
+    geo = geo_features or {}
+    shock = shock_data or {}
+
+    conflict = _clamp01(geo.get("geo_conflict_risk", 0.0))
+    energy = _clamp01(geo.get("geo_energy_supply_risk", 0.0))
+    regional = _clamp01(geo.get("geo_regional_tension", 0.0))
+    risk_off = _clamp01(geo.get("geo_global_risk_off", 0.0))
+    overlap = _clamp01(geo.get("geo_energy_war_overlap", 0.0))
+    shock_detected = bool(shock.get("shock_detected", False))
+
+    fuel_hike_detected = False
+    circular_relief_detected = False
+    energy_supply_detected = False
+    positive_oil_context = False
+
+    for item in news_items or []:
+        text = " ".join(
+            [
+                str(item.get("title", "")),
+                str(item.get("description", "")),
+                str(item.get("summary", "")),
+            ]
+        ).lower()
+        fuel_delta = parse_local_fuel_price_delta(text)
+        if fuel_delta is not None and fuel_delta > 0:
+            fuel_hike_detected = True
+        if score_circular_debt_signal(text) > 0 or _has_payment_relief_context(text):
+            circular_relief_detected = True
+        if is_energy_supply_shock_text(text):
+            energy_supply_detected = True
+        if _has_positive_oil_context(text):
+            positive_oil_context = True
+
+    bullish_for_upstream = (
+        symbol_upper in UPSTREAM_EP_SYMBOLS
+        and energy >= 0.50
+        and (
+            shock_detected
+            or overlap >= 0.25
+            or positive_oil_context
+            or fuel_hike_detected
+        )
+    )
+
+    tailwind_score = _clamp01(
+        (0.60 * energy)
+        + (0.20 * overlap)
+        + (0.10 if shock_detected or energy_supply_detected else 0.0)
+        + (0.10 if positive_oil_context else 0.0)
+    )
+    cashflow_support_score = _clamp01(
+        (0.65 if fuel_hike_detected else 0.0)
+        + (0.35 if circular_relief_detected else 0.0)
+    )
+
+    if bullish_for_upstream:
+        reasons: List[str] = []
+        if shock_detected or overlap >= 0.25 or energy_supply_detected or positive_oil_context:
+            reasons.append("Middle East energy shock is a sector tailwind for upstream E&P")
+        if fuel_hike_detected or circular_relief_detected:
+            reasons.append("Domestic fuel-price hike may support circular-debt cash recovery")
+        if not reasons:
+            reasons.append("Energy supply stress is being interpreted as an upstream sector tailwind")
+
+        return {
+            "sector_interpretation": "upstream_energy_tailwind",
+            "polarity": "bullish_for_upstream",
+            "bullish_for_upstream": True,
+            "tailwind_score": round(tailwind_score, 2),
+            "cashflow_support_score": round(cashflow_support_score, 2),
+            "reason": ". ".join(reasons),
+        }
+
+    risk_pressure = _clamp01((0.45 * conflict) + (0.35 * risk_off) + (0.20 * regional))
+    interpretation["polarity"] = "risk_off" if risk_pressure >= 0.25 else "neutral"
+    interpretation["bullish_for_upstream"] = False
+    interpretation["tailwind_score"] = (
+        round(tailwind_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["cashflow_support_score"] = (
+        round(cashflow_support_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["reason"] = (
+        "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
+    )
+    return interpretation
+
+
 def build_geopolitical_daily_adjustments(
     geo_features: Dict[str, float],
     prediction_length: int,
     symbol: Optional[str] = None,
     shock_data: Optional[Dict] = None,
+    interpretation: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
     """
     Build day-indexed geo adjustments compatible with apply_adjustments_to_predictions.
@@ -835,6 +995,8 @@ def build_geopolitical_daily_adjustments(
                 "risk_score": 0.0,
                 "volume_multiplier": 0.5,
                 "shock_detected": False,
+                "overlay_mode": "risk_off",
+                "bullish_for_upstream": False,
                 "matched_patterns": [],
                 "shock_reason": "No geopolitical shock detected",
                 "methodology": "Deterministic geo risk post-processing (empty horizon)",
@@ -861,6 +1023,10 @@ def build_geopolitical_daily_adjustments(
     shock_detected = shock.get("shock_detected", False)
     emergency_multiplier = shock.get("emergency_multiplier", 1.0)
     half_life = float(shock.get("shock_half_life", 14))
+    interp = interpretation or {}
+    bullish_for_upstream = bool(interp.get("bullish_for_upstream", False))
+    tailwind_score = _clamp01(float(interp.get("tailwind_score", 0.0) or 0.0))
+    cashflow_support_score = _clamp01(float(interp.get("cashflow_support_score", 0.0) or 0.0))
 
     sector = SYMBOL_SECTOR.get((symbol or "").upper(), "")
     energy_shock_mode = bool(shock_detected) or energy_war_overlap > 0 or (
@@ -873,19 +1039,33 @@ def build_geopolitical_daily_adjustments(
     volume_multiplier = 0.5 + (0.5 * volume)
 
     # Widen caps during shocks: e.g. -0.05 * 2.5 = -0.125 (12.5% max single-day drop)
-    lower_cap = -0.05 * emergency_multiplier
-    upper_cap = 0.02 * emergency_multiplier
+    if bullish_for_upstream:
+        lower_cap = -0.02 * emergency_multiplier
+        upper_cap = 0.05 * emergency_multiplier
+        tailwind_strength = _clamp01((0.75 * tailwind_score) + (0.25 * cashflow_support_score))
+        overlay_mode = "upstream_tailwind"
+    else:
+        lower_cap = -0.05 * emergency_multiplier
+        upper_cap = 0.02 * emergency_multiplier
+        tailwind_strength = 0.0
+        overlay_mode = "risk_off"
 
     adjustments: List[Dict] = []
     for day in range(1, prediction_length + 1):
         decay = 0.5 ** ((day - 1) / half_life)
-        raw_adjustment = -0.04 * risk_score * volume_multiplier * decay * emergency_multiplier
+        if bullish_for_upstream:
+            raw_adjustment = 0.025 * tailwind_strength * volume_multiplier * decay * emergency_multiplier
+        else:
+            raw_adjustment = -0.04 * risk_score * volume_multiplier * decay * emergency_multiplier
         capped_adjustment = max(lower_cap, min(upper_cap, raw_adjustment))
         pct = capped_adjustment * 100.0
         event_impacts = [
             f"geo_risk_score={risk_score:.3f}",
             f"geo_decay_day_{day}={decay:.4f}",
         ]
+        if bullish_for_upstream:
+            event_impacts.append(f"upstream_tailwind={tailwind_strength:.3f}")
+            event_impacts.append(f"cashflow_support={cashflow_support_score:.3f}")
         if shock_detected:
             event_impacts.append(f"emergency_multiplier={emergency_multiplier}")
             event_impacts.append(f"shock_half_life={half_life}")
@@ -909,6 +1089,8 @@ def build_geopolitical_daily_adjustments(
     )
     if shock_detected:
         methodology += f" [SHOCK MODE: {emergency_multiplier}x emergency multiplier]"
+    if bullish_for_upstream:
+        methodology += " [UPSTREAM TAILWIND MODE]"
 
     return {
         "adjustments": adjustments,
@@ -918,6 +1100,8 @@ def build_geopolitical_daily_adjustments(
             "risk_score": round(risk_score, 6),
             "volume_multiplier": round(volume_multiplier, 6),
             "shock_detected": shock_detected,
+            "overlay_mode": overlay_mode,
+            "bullish_for_upstream": bullish_for_upstream,
             "emergency_multiplier": emergency_multiplier if shock_detected else 1.0,
             "shock_events": shock.get("shock_events", []) if shock_detected else [],
             "matched_patterns": shock.get("matched_patterns", []),

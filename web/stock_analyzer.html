@@ -2403,11 +2403,29 @@
             const summary = (geoMeta.adjustment_summary && typeof geoMeta.adjustment_summary === 'object')
                 ? geoMeta.adjustment_summary
                 : {};
+            const interpretation = (geoMeta.interpretation && typeof geoMeta.interpretation === 'object')
+                ? geoMeta.interpretation
+                : {};
             const avgAdj = Number(summary.avg_adjustment_pct);
             const maxAdj = Number(summary.max_abs_adjustment_pct);
             const avgAdjText = Number.isFinite(avgAdj) ? `${avgAdj >= 0 ? '+' : ''}${avgAdj.toFixed(2)}%` : 'N/A';
             const maxAdjText = Number.isFinite(maxAdj) ? `${maxAdj.toFixed(2)}%` : 'N/A';
             const shockReason = geoMeta.shock_reason || summary.shock_reason || '';
+            const interpretationReason = interpretation.reason || '';
+            const interpretationPolarity = interpretation.polarity || 'neutral';
+            const tailwindScore = Number(interpretation.tailwind_score);
+            const cashflowSupportScore = Number(interpretation.cashflow_support_score);
+            const interpretationHtml = interpretationReason
+                ? `
+                    <div class="geo-overlay-status">
+                        Sector interpretation: ${interpretation.sector_interpretation || 'generic'}<br>
+                        Polarity: ${interpretationPolarity}<br>
+                        Tailwind score: ${Number.isFinite(tailwindScore) ? `${(tailwindScore * 100).toFixed(0)}%` : 'N/A'}
+                        | Cashflow support: ${Number.isFinite(cashflowSupportScore) ? `${(cashflowSupportScore * 100).toFixed(0)}%` : 'N/A'}<br>
+                        ${interpretationReason}
+                    </div>
+                `
+                : '';
 
             const chips = [
                 { key: 'geo_conflict_risk', label: 'Conflict Risk' },
@@ -2459,6 +2477,7 @@
                     Net impact: Avg shift ${avgAdjText} | Max absolute shift ${maxAdjText}
                     ${shockReason ? `<br>Shock reason: ${shockReason}` : ''}
                 </div>
+                ${interpretationHtml}
                 <div class="geo-chip-grid">${chipsHtml}</div>
                 ${driftHtml}
             `;

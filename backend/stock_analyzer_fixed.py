@@ -871,6 +871,8 @@ def _run_shadow_comparison(
     from backend.geopolitical_features import (
         get_geopolitical_features_from_news,
         build_geopolitical_daily_adjustments,
+        build_geo_interpretation,
+        detect_geopolitical_shocks,
     )
 
     comparison: dict = {"enabled": True, "status": "ok"}
@@ -880,6 +882,15 @@ def _run_shadow_comparison(
         news_items = (sentiment_result or {}).get("news_items", [])
         geo_features = get_geopolitical_features_from_news(news_items, symbol)
     comparison["geo_features"] = geo_features or {}
+    news_items = (sentiment_result or {}).get("news_items", [])
+    shock_data = detect_geopolitical_shocks(news_items, symbol) if news_items else {}
+    geo_interpretation = build_geo_interpretation(
+        news_items=news_items,
+        geo_features=geo_features or {},
+        shock_data=shock_data,
+        symbol=symbol,
+    )
+    comparison["interpretation"] = geo_interpretation
 
     # 2. Recompute upgraded series only if caller did not provide it
     if upgraded_predictions is None:
@@ -899,6 +910,8 @@ def _run_shadow_comparison(
             geo_features or {},
             prediction_length=len(upgraded_predictions),
             symbol=symbol,
+            shock_data=shock_data,
+            interpretation=geo_interpretation,
         )
         if geo_adj_data.get("adjustments"):
             current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0
@@ -1450,6 +1463,18 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             "enabled": geo_enabled,
             "applied": False,
             "shock_reason": "No geopolitical shock detected" if geo_enabled else "Geo overlay disabled for this run.",
+            "interpretation": {
+                "sector_interpretation": "generic",
+                "polarity": "neutral" if geo_enabled else "disabled",
+                "bullish_for_upstream": False,
+                "tailwind_score": 0.0,
+                "cashflow_support_score": 0.0,
+                "reason": (
+                    "No sector-specific geopolitical interpretation applied."
+                    if geo_enabled
+                    else "Geo overlay disabled for this run."
+                ),
+            },
             "labels": {
                 "baseline": "Without Geo Features",
                 "geo": "With Geo Features",
@@ -1462,6 +1487,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 from backend.geopolitical_features import (
                     get_geopolitical_features_from_news,
                     build_geopolitical_daily_adjustments,
+                    build_geo_interpretation,
                     detect_geopolitical_shocks,
                 )
                 news_items = (sentiment_result or {}).get("news_items", [])
@@ -1469,12 +1495,19 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 
                 # Shock detection – emergency multiplier for extreme events
                 shock_data = detect_geopolitical_shocks(news_items, symbol)
+                geo_interpretation = build_geo_interpretation(
+                    news_items=news_items,
+                    geo_features=geo_features,
+                    shock_data=shock_data,
+                    symbol=symbol,
+                )
 
                 geo_adjustment_data = build_geopolitical_daily_adjustments(
                     geo_features,
                     prediction_length=len(predictions_without_geo),
                     symbol=symbol,
                     shock_data=shock_data,
+                    interpretation=geo_interpretation,
                 )
 
                 current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
@@ -1490,6 +1523,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                         "adjustment_summary": geo_adjustment_data.get("summary", {}),
                         "shock_data": shock_data,
                         "shock_reason": shock_data.get("shock_reason", "No geopolitical shock detected"),
+                        "interpretation": geo_interpretation,
                     }
                 )
 
