@@ -852,6 +852,10 @@ def default_geo_interpretation(enabled: bool = True) -> Dict[str, object]:
         "bullish_for_upstream": False,
         "tailwind_score": 0.0,
         "cashflow_support_score": 0.0,
+        "shock_severity_score": 0.0,
+        "fuel_hike_magnitude_rs": 0.0,
+        "fuel_hike_score": 0.0,
+        "circular_debt_relief_score": 0.0,
         "reason": (
             "No sector-specific geopolitical interpretation applied."
             if enabled
@@ -888,11 +892,15 @@ def build_geo_interpretation(
     risk_off = _clamp01(geo.get("geo_global_risk_off", 0.0))
     overlap = _clamp01(geo.get("geo_energy_war_overlap", 0.0))
     shock_detected = bool(shock.get("shock_detected", False))
+    shock_severity_score = _clamp01(float(shock.get("max_severity", 0.0) or 0.0) / 3.0)
+    if shock_detected and shock_severity_score <= 0.0:
+        shock_severity_score = _clamp01(0.35 + (0.35 * overlap) + (0.20 * energy))
 
     fuel_hike_detected = False
     circular_relief_detected = False
     energy_supply_detected = False
     positive_oil_context = False
+    max_fuel_hike_rs = 0.0
 
     for item in news_items or []:
         text = " ".join(
@@ -905,6 +913,7 @@ def build_geo_interpretation(
         fuel_delta = parse_local_fuel_price_delta(text)
         if fuel_delta is not None and fuel_delta > 0:
             fuel_hike_detected = True
+            max_fuel_hike_rs = max(max_fuel_hike_rs, float(fuel_delta))
         if score_circular_debt_signal(text) > 0 or _has_payment_relief_context(text):
             circular_relief_detected = True
         if is_energy_supply_shock_text(text):
@@ -924,14 +933,18 @@ def build_geo_interpretation(
     )
 
     tailwind_score = _clamp01(
-        (0.60 * energy)
+        (0.45 * energy)
         + (0.20 * overlap)
+        + (0.15 * shock_severity_score)
         + (0.10 if shock_detected or energy_supply_detected else 0.0)
         + (0.10 if positive_oil_context else 0.0)
     )
+    fuel_hike_score = _clamp01(max_fuel_hike_rs / 60.0)
+    circular_debt_relief_score = 1.0 if circular_relief_detected else 0.0
     cashflow_support_score = _clamp01(
-        (0.65 if fuel_hike_detected else 0.0)
-        + (0.35 if circular_relief_detected else 0.0)
+        (0.55 * fuel_hike_score)
+        + (0.35 * circular_debt_relief_score)
+        + (0.10 if fuel_hike_detected and circular_relief_detected else 0.0)
     )
 
     if bullish_for_upstream:
@@ -949,6 +962,10 @@ def build_geo_interpretation(
             "bullish_for_upstream": True,
             "tailwind_score": round(tailwind_score, 2),
             "cashflow_support_score": round(cashflow_support_score, 2),
+            "shock_severity_score": round(shock_severity_score, 2),
+            "fuel_hike_magnitude_rs": round(max_fuel_hike_rs, 2),
+            "fuel_hike_score": round(fuel_hike_score, 2),
+            "circular_debt_relief_score": round(circular_debt_relief_score, 2),
             "reason": ". ".join(reasons),
         }
 
@@ -960,6 +977,18 @@ def build_geo_interpretation(
     )
     interpretation["cashflow_support_score"] = (
         round(cashflow_support_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["shock_severity_score"] = (
+        round(shock_severity_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["fuel_hike_magnitude_rs"] = (
+        round(max_fuel_hike_rs, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["fuel_hike_score"] = (
+        round(fuel_hike_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
+    )
+    interpretation["circular_debt_relief_score"] = (
+        round(circular_debt_relief_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
     )
     interpretation["reason"] = (
         "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
@@ -997,6 +1026,7 @@ def build_geopolitical_daily_adjustments(
                 "shock_detected": False,
                 "overlay_mode": "risk_off",
                 "bullish_for_upstream": False,
+                "tailwind_strength": 0.0,
                 "matched_patterns": [],
                 "shock_reason": "No geopolitical shock detected",
                 "methodology": "Deterministic geo risk post-processing (empty horizon)",
@@ -1027,6 +1057,9 @@ def build_geopolitical_daily_adjustments(
     bullish_for_upstream = bool(interp.get("bullish_for_upstream", False))
     tailwind_score = _clamp01(float(interp.get("tailwind_score", 0.0) or 0.0))
     cashflow_support_score = _clamp01(float(interp.get("cashflow_support_score", 0.0) or 0.0))
+    shock_severity_score = _clamp01(float(interp.get("shock_severity_score", 0.0) or 0.0))
+    fuel_hike_score = _clamp01(float(interp.get("fuel_hike_score", 0.0) or 0.0))
+    circular_debt_relief_score = _clamp01(float(interp.get("circular_debt_relief_score", 0.0) or 0.0))
 
     sector = SYMBOL_SECTOR.get((symbol or "").upper(), "")
     energy_shock_mode = bool(shock_detected) or energy_war_overlap > 0 or (
@@ -1042,7 +1075,13 @@ def build_geopolitical_daily_adjustments(
     if bullish_for_upstream:
         lower_cap = -0.02 * emergency_multiplier
         upper_cap = 0.05 * emergency_multiplier
-        tailwind_strength = _clamp01((0.75 * tailwind_score) + (0.25 * cashflow_support_score))
+        tailwind_strength = _clamp01(
+            (0.40 * tailwind_score)
+            + (0.25 * cashflow_support_score)
+            + (0.20 * shock_severity_score)
+            + (0.10 * fuel_hike_score)
+            + (0.05 * circular_debt_relief_score)
+        )
         overlay_mode = "upstream_tailwind"
     else:
         lower_cap = -0.05 * emergency_multiplier
@@ -1054,8 +1093,16 @@ def build_geopolitical_daily_adjustments(
     for day in range(1, prediction_length + 1):
         decay = 0.5 ** ((day - 1) / half_life)
         if bullish_for_upstream:
-            raw_adjustment = 0.025 * tailwind_strength * volume_multiplier * decay * emergency_multiplier
+            positive_rate = (
+                0.010
+                + (0.010 * tailwind_score)
+                + (0.008 * cashflow_support_score)
+                + (0.006 * shock_severity_score)
+                + (0.004 * fuel_hike_score)
+            )
+            raw_adjustment = positive_rate * volume_multiplier * decay * emergency_multiplier
         else:
+            positive_rate = 0.0
             raw_adjustment = -0.04 * risk_score * volume_multiplier * decay * emergency_multiplier
         capped_adjustment = max(lower_cap, min(upper_cap, raw_adjustment))
         pct = capped_adjustment * 100.0
@@ -1066,6 +1113,9 @@ def build_geopolitical_daily_adjustments(
         if bullish_for_upstream:
             event_impacts.append(f"upstream_tailwind={tailwind_strength:.3f}")
             event_impacts.append(f"cashflow_support={cashflow_support_score:.3f}")
+            event_impacts.append(f"shock_severity={shock_severity_score:.3f}")
+            event_impacts.append(f"fuel_hike_score={fuel_hike_score:.3f}")
+            event_impacts.append(f"positive_rate={positive_rate:.4f}")
         if shock_detected:
             event_impacts.append(f"emergency_multiplier={emergency_multiplier}")
             event_impacts.append(f"shock_half_life={half_life}")
@@ -1102,6 +1152,7 @@ def build_geopolitical_daily_adjustments(
             "shock_detected": shock_detected,
             "overlay_mode": overlay_mode,
             "bullish_for_upstream": bullish_for_upstream,
+            "tailwind_strength": round(tailwind_strength, 6),
             "emergency_multiplier": emergency_multiplier if shock_detected else 1.0,
             "shock_events": shock.get("shock_events", []) if shock_detected else [],
             "matched_patterns": shock.get("matched_patterns", []),

@@ -929,5 +929,24 @@
     "actual_direction": null,
     "direction_correct": null,
     "evaluated": false
+  },
+  {
+    "id": "OGDC_20260309_030747",
+    "symbol": "OGDC",
+    "prediction_date": "2026-03-09T03:07:47.558800",
+    "evaluation_date": "2026-03-16",
+    "horizon_days": 7,
+    "current_price": 275.79,
+    "predicted_price": 277.81,
+    "predicted_change_pct": 0.73,
+    "predicted_direction": "BEARISH",
+    "confidence": 0.85,
+    "williams_signal": "UP",
+    "sector": null,
+    "actual_price": null,
+    "actual_change_pct": null,
+    "actual_direction": null,
+    "direction_correct": null,
+    "evaluated": false
   }
 ]

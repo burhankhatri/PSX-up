@@ -1,6 +1,6 @@
 {
   "symbol": "TEST",
-  "compared_at": "2026-03-09T03:03:23.656135",
+  "compared_at": "2026-03-09T03:08:06.662236",
   "enabled": true,
   "status": "ok",
   "geo_features": {
@@ -16,6 +16,10 @@
     "bullish_for_upstream": false,
     "tailwind_score": 0.0,
     "cashflow_support_score": 0.0,
+    "shock_severity_score": 0.0,
+    "fuel_hike_magnitude_rs": 0.0,
+    "fuel_hike_score": 0.0,
+    "circular_debt_relief_score": 0.0,
     "reason": "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
   },
   "upgraded_count": 3,
