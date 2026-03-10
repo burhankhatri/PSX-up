@@ -1,6 +1,6 @@
 {
   "symbol": "TEST",
-  "compared_at": "2026-03-09T03:11:57.444721",
+  "compared_at": "2026-03-09T04:30:58.841956",
   "enabled": true,
   "status": "ok",
   "geo_features": {
@@ -10,16 +10,77 @@
     "geo_global_risk_off": 0.6,
     "geo_news_volume": 0.5
   },
+  "overlay_news_diagnostics": {
+    "retrieval_mode": "symbol_mode",
+    "geo_mode": true,
+    "per_source": {
+      "business_recorder": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      },
+      "dawn": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      },
+      "pakistan_today": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      },
+      "express_tribune": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      },
+      "geo_news": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      },
+      "minute_mirror": {
+        "fetched": 0,
+        "parsed": 0,
+        "filtered_out": 0,
+        "kept": 0,
+        "status": "blocked"
+      }
+    },
+    "fallback_chain": [],
+    "filtered_count": 0,
+    "kept_count": 0,
+    "sources_attempted": 6,
+    "sources_successful": 0
+  },
   "interpretation": {
     "sector_interpretation": "generic",
     "polarity": "risk_off",
     "bullish_for_upstream": false,
+    "bearish_for_downstream": false,
     "tailwind_score": 0.0,
     "cashflow_support_score": 0.0,
     "shock_severity_score": 0.0,
     "fuel_hike_magnitude_rs": 0.0,
     "fuel_hike_score": 0.0,
     "circular_debt_relief_score": 0.0,
+    "projected_inflation_spike": 0.0,
+    "interest_rate_squeeze_score": 0.0,
+    "margin_compression_score": 0.0,
+    "demand_destruction_score": 0.0,
+    "headwind_strength": 0.0,
+    "vulnerability_profile": {},
+    "evidence_quality": "weak",
     "reason": "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
   },
   "upgraded_count": 3,

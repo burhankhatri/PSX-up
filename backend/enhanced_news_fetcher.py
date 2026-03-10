@@ -83,7 +83,39 @@ COMPANY_ALIASES = {
         'sector': 'exploration_production',
         'sector_peers': ['OGDC', 'PPL', 'POL'],
     },
-    
+
+    # Autos
+    'SAZEW': {
+        'names': ['Sazgar Engineering', 'SAZEW', 'Sazgar Engineering Works', 'Haval Pakistan'],
+        'parent': None,
+        'sector': 'autos',
+        'sector_peers': ['INDU', 'HCAR', 'PSMC', 'MTL'],
+    },
+    'INDU': {
+        'names': ['Indus Motor', 'INDU', 'Toyota Indus', 'Indus Motor Company'],
+        'parent': None,
+        'sector': 'autos',
+        'sector_peers': ['SAZEW', 'HCAR', 'PSMC', 'MTL'],
+    },
+    'HCAR': {
+        'names': ['Honda Atlas Cars', 'HCAR', 'Honda Atlas', 'Honda Cars Pakistan'],
+        'parent': 'Atlas Group',
+        'sector': 'autos',
+        'sector_peers': ['SAZEW', 'INDU', 'PSMC', 'MTL'],
+    },
+    'PSMC': {
+        'names': ['Pak Suzuki', 'PSMC', 'Pak Suzuki Motor', 'Suzuki Pakistan'],
+        'parent': 'Suzuki Motor',
+        'sector': 'autos',
+        'sector_peers': ['SAZEW', 'INDU', 'HCAR', 'MTL'],
+    },
+    'MTL': {
+        'names': ['Millat Tractors', 'MTL', 'Millat'],
+        'parent': 'Millat Group',
+        'sector': 'autos',
+        'sector_peers': ['SAZEW', 'INDU', 'HCAR', 'PSMC'],
+    },
+
     # Cement
     'LUCK': {
         'names': ['Lucky Cement', 'LUCK', 'Lucky Cement Limited'],
@@ -96,6 +128,44 @@ COMPANY_ALIASES = {
         'parent': 'Nishat Group',
         'sector': 'cement',
         'sector_peers': ['LUCK', 'MLCF', 'PIOC', 'FCCL'],
+    },
+    'MLCF': {
+        'names': ['Maple Leaf Cement', 'MLCF', 'Maple Leaf'],
+        'parent': None,
+        'sector': 'cement',
+        'sector_peers': ['LUCK', 'DGKC', 'FCCL', 'CHCC', 'KOHC'],
+    },
+    'CHCC': {
+        'names': ['Cherat Cement', 'CHCC', 'Cherat Cement Company'],
+        'parent': None,
+        'sector': 'cement',
+        'sector_peers': ['LUCK', 'DGKC', 'FCCL', 'MLCF', 'KOHC'],
+    },
+    'KOHC': {
+        'names': ['Kohat Cement', 'KOHC', 'Kohat Cement Company'],
+        'parent': None,
+        'sector': 'cement',
+        'sector_peers': ['LUCK', 'DGKC', 'FCCL', 'MLCF', 'CHCC'],
+    },
+
+    # Steel
+    'ISL': {
+        'names': ['International Steels', 'ISL', 'International Steels Limited'],
+        'parent': 'International Industries',
+        'sector': 'steel',
+        'sector_peers': ['ASTL', 'MUGHAL'],
+    },
+    'ASTL': {
+        'names': ['Amreli Steels', 'ASTL', 'Amreli Steel'],
+        'parent': None,
+        'sector': 'steel',
+        'sector_peers': ['ISL', 'MUGHAL'],
+    },
+    'MUGHAL': {
+        'names': ['Mughal Iron and Steel', 'MUGHAL', 'Mughal Steel'],
+        'parent': None,
+        'sector': 'steel',
+        'sector_peers': ['ISL', 'ASTL'],
     },
     
     # Banks
@@ -129,7 +199,19 @@ COMPANY_ALIASES = {
         'names': ['TRG Pakistan', 'TRG', 'The Resource Group'],
         'parent': None,
         'sector': 'technology',
-        'sector_peers': ['SYS', 'NETSOL'],
+        'sector_peers': ['SYS', 'NETSOL', 'AVN'],
+    },
+    'NETSOL': {
+        'names': ['NetSol Technologies', 'NETSOL', 'NetSol'],
+        'parent': None,
+        'sector': 'technology',
+        'sector_peers': ['SYS', 'TRG', 'AVN'],
+    },
+    'AVN': {
+        'names': ['Avanceon', 'AVN', 'Avanceon Limited'],
+        'parent': None,
+        'sector': 'technology',
+        'sector_peers': ['SYS', 'TRG', 'NETSOL'],
     },
     
     # Fertilizer
@@ -172,12 +254,42 @@ COMPANY_ALIASES = {
 # Sector keywords for broad searches
 SECTOR_KEYWORDS = {
     'fertilizer': ['fertilizer Pakistan', 'urea prices', 'DAP prices', 'fertilizer subsidy'],
-    'cement': ['cement sector Pakistan', 'cement exports', 'construction Pakistan', 'CPEC projects'],
+    'autos': [
+        'auto sector Pakistan',
+        'car financing Pakistan',
+        'auto sales Pakistan',
+        'SBP auto financing',
+        'consumer financing Pakistan',
+        'petrol prices Pakistan',
+        'PKR car demand',
+    ],
+    'cement': [
+        'cement sector Pakistan',
+        'cement exports',
+        'construction Pakistan',
+        'CPEC projects',
+        'coal prices Pakistan',
+        'power tariff Pakistan',
+        'construction slowdown Pakistan',
+        'interest rates Pakistan',
+    ],
     'oil_marketing': ['OMC Pakistan', 'fuel prices Pakistan', 'petroleum levy', 'oil imports'],
     'exploration_production': ['oil gas Pakistan', 'petroleum exploration', 'OGRA', 'oil discovery'],
     'banks': ['banking sector Pakistan', 'SBP policy rate', 'KIBOR', 'monetary policy', 'ADR ratio'],
     'islamic_banks': ['islamic banking Pakistan', 'sukuk', 'sharia compliant'],
-    'technology': ['IT exports Pakistan', 'software exports', 'tech Pakistan'],
+    'steel': [
+        'steel sector Pakistan',
+        'power tariff Pakistan steel',
+        'construction slowdown Pakistan',
+        'imported scrap Pakistan',
+    ],
+    'technology': [
+        'IT exports Pakistan',
+        'software exports Pakistan',
+        'outsourcing Pakistan',
+        'USD PKR software exports',
+        'Pakistan tech exports',
+    ],
     'power': ['power sector Pakistan', 'circular debt', 'electricity tariff', 'NEPRA'],
     'conglomerate': [],
 }
@@ -199,6 +311,15 @@ ENERGY_SCOPE_QUERIES = {
     ],
 }
 
+ENERGY_GEO_DOMESTIC_QUERIES = [
+    'petrol price hike Pakistan',
+    'diesel price hike Pakistan',
+    'fuel price hike Pakistan',
+    'circular debt plan Pakistan',
+    'circular debt payment release Pakistan',
+    'receivables cleared Pakistan energy',
+]
+
 ENERGY_MACRO_QUERIES = [
     'Middle East war pushes energy prices higher',
     'Strait of Hormuz blockade',
@@ -211,8 +332,14 @@ ENERGY_SCOPE_HINTS = frozenset([
     'fuel prices',
     'petrol',
     'diesel',
+    'price hike',
+    'petrol price hike',
+    'diesel price hike',
     'petroleum levy',
     'circular debt',
+    'circular debt plan',
+    'payment release',
+    'receivables cleared',
     'ogra',
     'oil discovery',
     'oil and gas',
@@ -232,11 +359,31 @@ ENERGY_MACRO_HINTS = frozenset([
     'fuel prices',
     'petroleum levy',
     'circular debt',
+    'circular debt plan',
+    'payment release',
+    'receivables cleared',
     'oil prices',
     'iran',
     'israel',
     'gulf',
 ])
+
+DOWNSTREAM_GEO_SYMBOLS = frozenset({
+    'SAZEW', 'INDU', 'HCAR', 'PSMC', 'MTL',
+    'LUCK', 'CHCC', 'DGKC', 'MLCF', 'FCCL', 'KOHC',
+    'ISL', 'ASTL', 'MUGHAL',
+    'SYS', 'TRG', 'NETSOL', 'AVN',
+})
+
+DOWNSTREAM_MACRO_QUERIES = [
+    'petrol price hike Pakistan',
+    'diesel price hike Pakistan',
+    'SBP policy rate Pakistan',
+    'inflation surge Pakistan',
+    'auto financing Pakistan',
+    'electricity tariff Pakistan',
+    'coal prices Pakistan',
+]
 
 # Macro news categories that affect all stocks
 MACRO_CATEGORIES = [
@@ -339,6 +486,7 @@ SOURCE_BASE_URLS = {
     'express tribune': 'https://tribune.com.pk',
     'geo news': 'https://www.geo.tv',
     'minute mirror': 'https://minutemirror.com.pk',
+    'sbp': 'https://www.sbp.org.pk',
 }
 
 
@@ -626,10 +774,18 @@ def _macro_relevance_terms(symbol: str) -> Set[str]:
     terms = {term.lower() for term in MACRO_CATEGORIES}
     if symbol in ENERGY_SHOCK_SYMBOLS:
         terms.update(ENERGY_MACRO_HINTS)
+    if symbol in DOWNSTREAM_GEO_SYMBOLS:
+        terms.update(term.lower() for term in DOWNSTREAM_MACRO_QUERIES)
+        sector = COMPANY_ALIASES.get(symbol, {}).get('sector', '')
+        terms.update(term.lower() for term in SECTOR_KEYWORDS.get(sector, []))
     return {t for t in terms if t}
 
 
-def get_search_query_specs(symbol: str, retrieval_mode: str = 'auto') -> List[Dict[str, str]]:
+def get_search_query_specs(
+    symbol: str,
+    retrieval_mode: str = 'auto',
+    geo_mode: bool = False,
+) -> List[Dict[str, str]]:
     """Get scoped search queries tailored for symbol mode vs index mode."""
     mode = determine_retrieval_mode(symbol, retrieval_mode=retrieval_mode)
     symbol = symbol.upper()
@@ -665,6 +821,14 @@ def get_search_query_specs(symbol: str, retrieval_mode: str = 'auto') -> List[Di
                 specs.append({'query': query, 'scope': 'sector'})
             for query in ENERGY_MACRO_QUERIES:
                 specs.append({'query': query, 'scope': 'macro'})
+        if geo_mode and symbol in ENERGY_SHOCK_SYMBOLS:
+            for query in ENERGY_GEO_DOMESTIC_QUERIES:
+                specs.append({'query': query, 'scope': 'sector'})
+        if geo_mode and symbol in DOWNSTREAM_GEO_SYMBOLS:
+            for query in SECTOR_KEYWORDS.get(sector, []):
+                specs.append({'query': query, 'scope': 'sector'})
+            for query in DOWNSTREAM_MACRO_QUERIES:
+                specs.append({'query': query, 'scope': 'macro'})
     else:
         specs.append({'query': f"{symbol} PSX", 'scope': 'symbol'})
         specs.append({'query': f"{symbol} Pakistan stock", 'scope': 'symbol'})
@@ -679,8 +843,11 @@ def get_search_query_specs(symbol: str, retrieval_mode: str = 'auto') -> List[Di
     return unique
 
 
-def get_search_queries(symbol: str, retrieval_mode: str = 'auto') -> List[str]:
-    return [spec['query'] for spec in get_search_query_specs(symbol, retrieval_mode=retrieval_mode)]
+def get_search_queries(symbol: str, retrieval_mode: str = 'auto', geo_mode: bool = False) -> List[str]:
+    return [
+        spec['query']
+        for spec in get_search_query_specs(symbol, retrieval_mode=retrieval_mode, geo_mode=geo_mode)
+    ]
 
 
 def _is_symbol_relevant(title: str, queries: List[str]) -> bool:
@@ -788,20 +955,121 @@ def fetch_psx_notice_fallback(max_items: int = 5) -> List[Dict]:
     return kept
 
 
+def fetch_sbp_monetary_policy(max_items: int = 5) -> List[Dict]:
+    """Fetch monetary policy statements directly from SBP website.
+
+    SBP (State Bank of Pakistan) publishes MPC decisions and Monetary Policy
+    Statements at sbp.org.pk/m_policy/mon.asp.  This fills the gap where
+    general news search only weakly detects 'monetary policy unchanged' or
+    rate change announcements.
+    """
+    sbp_urls = [
+        # Primary: Monetary Policy Statements page (clean table of PDF links)
+        'https://www.sbp.org.pk/m_policy/mon.asp',
+        # Fallback: press releases
+        'https://www.sbp.org.pk/press/releases.asp',
+    ]
+
+    policy_keywords = [
+        'monetary policy statement', 'monetary policy decision',
+        'policy rate', 'interest rate', 'discount rate',
+        'rate unchanged', 'rate cut', 'rate hike', 'basis points',
+        'mpc decision', 'monetary policy committee', 'rate decision',
+        'kept unchanged', 'raised', 'lowered', 'tightening', 'easing',
+        'monetary policy information',
+    ]
+
+    articles: List[Dict] = []
+    seen: Set[str] = set()
+
+    for url in sbp_urls:
+        try:
+            result = fetch_news_curl_with_status(url, timeout=10)
+            html = result.get('html', '')
+            if not html:
+                continue
+
+            for m in re.finditer(
+                r'<a[^>]+href="([^"]*)"[^>]*>(.*?)</a>',
+                html, re.IGNORECASE | re.DOTALL
+            ):
+                href = m.group(1).strip()
+                title = _clean_anchor_text(m.group(2))
+                if len(title) < 15 or len(title) > 300:
+                    continue
+
+                title_lower = title.lower()
+                if title_lower in seen:
+                    continue
+
+                # Only keep monetary-policy-relevant items
+                if not any(kw in title_lower for kw in policy_keywords):
+                    continue
+
+                # Skip Urdu versions to avoid duplicates
+                if '(urdu)' in title_lower:
+                    continue
+
+                # Normalize SBP relative links
+                if href and not href.startswith('http'):
+                    if href.startswith('/'):
+                        href = f"https://www.sbp.org.pk{href}"
+                    else:
+                        href = f"https://www.sbp.org.pk/m_policy/{href}"
+
+                # Extract date from title like "Mar 09, 2026"
+                date_match = re.search(
+                    r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}',
+                    title, re.IGNORECASE
+                )
+                if date_match:
+                    try:
+                        parsed_date = datetime.strptime(
+                            date_match.group(0).replace(',', ''), '%b %d %Y'
+                        )
+                        article_date = parsed_date.strftime('%Y-%m-%d')
+                    except ValueError:
+                        article_date = datetime.now().strftime('%Y-%m-%d')
+                else:
+                    article_date = datetime.now().strftime('%Y-%m-%d')
+
+                seen.add(title_lower)
+                articles.append({
+                    'title': title[:300],
+                    'url': href,
+                    'source': 'SBP',
+                    'date': article_date,
+                    'is_macro': True,
+                    'is_direct': True,
+                    'scope': 'macro',
+                    'relevance_score': 1.0,
+                })
+                if len(articles) >= max_items:
+                    break
+            if len(articles) >= max_items:
+                break
+        except Exception:
+            continue
+
+    return articles
+
+
 def fetch_multi_source_news(
     symbol: str,
     max_per_source: int = 5,
     retrieval_mode: str = 'auto',
-    include_diagnostics: bool = False
+    include_diagnostics: bool = False,
+    geo_mode: bool = False,
 ) -> Union[Dict, List[Dict]]:
     """
     Fetch news from multiple sources with mode-aware relevance scoring and diagnostics.
     """
     mode = determine_retrieval_mode(symbol, retrieval_mode=retrieval_mode)
-    query_specs = get_search_query_specs(symbol, retrieval_mode=mode)
+    query_specs = get_search_query_specs(symbol, retrieval_mode=mode, geo_mode=geo_mode)
     queries = [spec['query'] for spec in query_specs]
     diagnostics = {
         'retrieval_mode': mode,
+        'geo_mode': geo_mode,
         'per_source': {},
         'fallback_chain': [],
         'filtered_count': 0,
@@ -901,13 +1169,26 @@ def fetch_multi_source_news(
     macro_news = fetch_macro_news(
         symbol=symbol,
         retrieval_mode=mode,
-        max_topics=8 if mode == 'index_mode' else 3
+        max_topics=8 if mode == 'index_mode' else 3,
+        geo_mode=geo_mode,
     )
     if macro_news:
         all_news.extend(macro_news)
         diagnostics['fallback_chain'].append(
             {'stage': 'macro_fallback', 'source': 'multi', 'added': len(macro_news)}
         )
+
+    # 5) SBP monetary policy — direct source for rate decisions
+    try:
+        sbp_articles = fetch_sbp_monetary_policy(max_items=3)
+        if sbp_articles:
+            all_news.extend(sbp_articles)
+            diagnostics['fallback_chain'].append(
+                {'stage': 'sbp_monetary_policy', 'source': 'sbp', 'added': len(sbp_articles)}
+            )
+            print(f"   🏦 SBP: {len(sbp_articles)} monetary policy articles")
+    except Exception:
+        pass
 
     # Final dedupe/rank
     ranked_news = dedupe_and_rank_news(all_news, retrieval_mode=mode)
@@ -956,7 +1237,12 @@ _MACRO_PRIORITY_QUERIES = [
 ]
 
 
-def fetch_macro_news(symbol: Optional[str] = None, retrieval_mode: str = 'symbol_mode', max_topics: int = 3) -> List[Dict]:
+def fetch_macro_news(
+    symbol: Optional[str] = None,
+    retrieval_mode: str = 'symbol_mode',
+    max_topics: int = 3,
+    geo_mode: bool = False,
+) -> List[Dict]:
     """Fetch macro economic news that affects PSX; broader in index mode.
 
     Uses prioritised PSX-specific queries across multiple sources to improve
@@ -974,10 +1260,19 @@ def fetch_macro_news(symbol: Optional[str] = None, retrieval_mode: str = 'symbol
         ))[:max_topics]
     else:
         symbol_upper = (symbol or '').upper()
-        if symbol_upper in ENERGY_SHOCK_SYMBOLS:
+        if geo_mode and symbol_upper in ENERGY_SHOCK_SYMBOLS:
+            topics = list(dict.fromkeys(
+                ENERGY_GEO_DOMESTIC_QUERIES + ENERGY_MACRO_QUERIES + MACRO_CATEGORIES
+            ))[:max_topics + 6]
+        elif symbol_upper in ENERGY_SHOCK_SYMBOLS:
             topics = list(dict.fromkeys(
                 ENERGY_MACRO_QUERIES + MACRO_CATEGORIES
             ))[:max_topics + 3]
+        elif geo_mode and symbol_upper in DOWNSTREAM_GEO_SYMBOLS:
+            sector = COMPANY_ALIASES.get(symbol_upper, {}).get('sector', '')
+            topics = list(dict.fromkeys(
+                DOWNSTREAM_MACRO_QUERIES + SECTOR_KEYWORDS.get(sector, []) + MACRO_CATEGORIES
+            ))[:max_topics + 4]
         else:
             topics = MACRO_CATEGORIES[:max_topics]
 
@@ -1037,6 +1332,7 @@ SOURCE_CREDIBILITY = {
     'psx': 1.0,
     'geo news': 0.8,
     'minute mirror': 0.7,
+    'sbp': 1.0,
 }
 
 
@@ -1110,7 +1406,11 @@ def calculate_news_bias(
 # MAIN FUNCTION
 # ============================================================================
 
-def get_enhanced_news_for_symbol(symbol: str, retrieval_mode: str = 'auto') -> Dict:
+def get_enhanced_news_for_symbol(
+    symbol: str,
+    retrieval_mode: str = 'auto',
+    geo_mode: bool = False,
+) -> Dict:
     """
     Main function: Get comprehensive news for a symbol.
     
@@ -1129,7 +1429,8 @@ def get_enhanced_news_for_symbol(symbol: str, retrieval_mode: str = 'auto') -> D
     fetch_result = fetch_multi_source_news(
         symbol=symbol,
         retrieval_mode=retrieval_mode,
-        include_diagnostics=True
+        include_diagnostics=True,
+        geo_mode=geo_mode,
     )
     news_items = fetch_result.get('news_items', [])
     queries = fetch_result.get('queries_used', [])

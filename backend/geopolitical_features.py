@@ -116,6 +116,179 @@ SYMBOL_SECTOR: Dict[str, str] = {
 
 CACHE_DIR = Path(__file__).parent.parent / "data" / "news_cache"
 UPSTREAM_EP_SYMBOLS = frozenset({"OGDC", "PPL", "POL", "MARI"})
+DOWNSTREAM_VULNERABILITY: Dict[str, Dict[str, float | str]] = {
+    "SAZEW": {
+        "sector": "autos",
+        "energy_input_drag": 0.25,
+        "interest_rate_drag": 0.90,
+        "consumer_demand_drag": 0.88,
+        "fx_offset": 0.05,
+    },
+    "INDU": {
+        "sector": "autos",
+        "energy_input_drag": 0.35,
+        "interest_rate_drag": 0.92,
+        "consumer_demand_drag": 0.90,
+        "fx_offset": 0.05,
+    },
+    "HCAR": {
+        "sector": "autos",
+        "energy_input_drag": 0.35,
+        "interest_rate_drag": 0.93,
+        "consumer_demand_drag": 0.90,
+        "fx_offset": 0.05,
+    },
+    "PSMC": {
+        "sector": "autos",
+        "energy_input_drag": 0.30,
+        "interest_rate_drag": 0.95,
+        "consumer_demand_drag": 0.95,
+        "fx_offset": 0.03,
+    },
+    "MTL": {
+        "sector": "autos",
+        "energy_input_drag": 0.28,
+        "interest_rate_drag": 0.75,
+        "consumer_demand_drag": 0.65,
+        "fx_offset": 0.08,
+    },
+    "LUCK": {
+        "sector": "cement",
+        "energy_input_drag": 0.85,
+        "interest_rate_drag": 0.65,
+        "consumer_demand_drag": 0.55,
+        "fx_offset": 0.00,
+    },
+    "CHCC": {
+        "sector": "cement",
+        "energy_input_drag": 0.82,
+        "interest_rate_drag": 0.60,
+        "consumer_demand_drag": 0.50,
+        "fx_offset": 0.00,
+    },
+    "DGKC": {
+        "sector": "cement",
+        "energy_input_drag": 0.84,
+        "interest_rate_drag": 0.65,
+        "consumer_demand_drag": 0.55,
+        "fx_offset": 0.00,
+    },
+    "MLCF": {
+        "sector": "cement",
+        "energy_input_drag": 0.83,
+        "interest_rate_drag": 0.64,
+        "consumer_demand_drag": 0.54,
+        "fx_offset": 0.00,
+    },
+    "FCCL": {
+        "sector": "cement",
+        "energy_input_drag": 0.80,
+        "interest_rate_drag": 0.62,
+        "consumer_demand_drag": 0.52,
+        "fx_offset": 0.00,
+    },
+    "KOHC": {
+        "sector": "cement",
+        "energy_input_drag": 0.78,
+        "interest_rate_drag": 0.58,
+        "consumer_demand_drag": 0.48,
+        "fx_offset": 0.00,
+    },
+    "ISL": {
+        "sector": "steel",
+        "energy_input_drag": 0.72,
+        "interest_rate_drag": 0.58,
+        "consumer_demand_drag": 0.52,
+        "fx_offset": 0.00,
+    },
+    "ASTL": {
+        "sector": "steel",
+        "energy_input_drag": 0.82,
+        "interest_rate_drag": 0.55,
+        "consumer_demand_drag": 0.48,
+        "fx_offset": 0.00,
+    },
+    "MUGHAL": {
+        "sector": "steel",
+        "energy_input_drag": 0.80,
+        "interest_rate_drag": 0.50,
+        "consumer_demand_drag": 0.45,
+        "fx_offset": 0.00,
+    },
+    "SYS": {
+        "sector": "technology",
+        "energy_input_drag": 0.12,
+        "interest_rate_drag": 0.18,
+        "consumer_demand_drag": 0.15,
+        "fx_offset": 0.45,
+    },
+    "TRG": {
+        "sector": "technology",
+        "energy_input_drag": 0.10,
+        "interest_rate_drag": 0.22,
+        "consumer_demand_drag": 0.12,
+        "fx_offset": 0.50,
+    },
+    "NETSOL": {
+        "sector": "technology",
+        "energy_input_drag": 0.12,
+        "interest_rate_drag": 0.22,
+        "consumer_demand_drag": 0.12,
+        "fx_offset": 0.55,
+    },
+    "AVN": {
+        "sector": "technology",
+        "energy_input_drag": 0.16,
+        "interest_rate_drag": 0.20,
+        "consumer_demand_drag": 0.15,
+        "fx_offset": 0.35,
+    },
+}
+
+DOWNSTREAM_RATE_PRESSURE_TERMS = (
+    "sbp",
+    "policy rate",
+    "interest rate",
+    "interest rates",
+    "monetary policy",
+    "kibor",
+    "inflation",
+    "cpi",
+    "price pressure",
+    "consumer financing",
+    "auto financing",
+)
+DOWNSTREAM_SECTOR_MACRO_TERMS: Dict[str, tuple[str, ...]] = {
+    "autos": (
+        "auto sector pakistan",
+        "car financing pakistan",
+        "auto sales pakistan",
+        "consumer financing pakistan",
+        "pkr car demand",
+    ),
+    "cement": (
+        "coal prices pakistan",
+        "power tariff pakistan",
+        "construction slowdown pakistan",
+        "interest rates pakistan",
+        "construction pakistan",
+    ),
+    "steel": (
+        "steel sector pakistan",
+        "power tariff pakistan steel",
+        "construction slowdown pakistan",
+        "imported scrap pakistan",
+    ),
+    "technology": (
+        "it exports pakistan",
+        "software exports pakistan",
+        "outsourcing pakistan",
+        "usd pkr software exports",
+        "pakistan tech exports",
+    ),
+}
+HIGH_CRED_SOURCES = frozenset({"psx", "business recorder", "dawn"})
+MEDIUM_CRED_SOURCES = frozenset({"geo news", "pakistan today", "express tribune"})
 
 POSITIVE_OIL_CONTEXT_TERMS = (
     "oil prices rise",
@@ -307,8 +480,72 @@ ESCALATION_PATTERNS: Dict[str, Dict] = {
 }
 
 
+def _build_llm_ticker_context(
+    symbol: Optional[str],
+    fuel_hike_detected: bool,
+    circular_relief_detected: bool,
+    energy_supply_detected: bool,
+) -> str:
+    symbol_upper = (symbol or "").upper()
+    lines = [
+        f"- Ticker under analysis: {symbol_upper or 'PSX market proxy'}",
+        "- `market_impact_pct` must estimate the NEXT-DAY impact for this ticker, not the broad KSE-100 unless the ticker is explicitly the market index.",
+    ]
+    if symbol_upper in UPSTREAM_EP_SYMBOLS:
+        lines.extend([
+            "- This ticker is an upstream exploration & production stock.",
+            "- For upstream E&P, Middle East energy supply shocks and crude-price spikes are often BULLISH revenue catalysts and can diverge from the broader market.",
+            "- Do not assume `war = bearish` for this ticker unless the news implies direct operational disruption to the company itself.",
+        ])
+        if fuel_hike_detected:
+            lines.append(
+                "- Domestic petrol/diesel hikes can be bullish because they improve realized pricing and payment collections."
+            )
+        if circular_relief_detected:
+            lines.append(
+                "- Circular-debt plans, payment releases, and receivables clearance are bullish cash-flow catalysts."
+            )
+        if energy_supply_detected:
+            lines.append(
+                "- If the shock is primarily an energy-supply disruption, bias the assessment toward sector tailwind rather than generic risk-off."
+            )
+    elif symbol_upper in DOWNSTREAM_VULNERABILITY:
+        downstream_sector = str(DOWNSTREAM_VULNERABILITY[symbol_upper].get("sector", "downstream"))
+        lines.extend([
+            f"- This ticker is a downstream {downstream_sector} stock.",
+            "- Fuel hikes, energy-cost shocks, and persistent interest-rate pressure are usually BEARISH margin/demand headwinds for this ticker.",
+            "- Do not soften the impact to generic PSX risk-off; reflect sector-specific damage where appropriate.",
+        ])
+    else:
+        lines.append(
+            "- Use normal broad-market logic unless the headlines imply a clear sector-specific divergence."
+        )
+    return "\n".join(lines)
+
+
+def _build_llm_trajectory_system_prompt(
+    symbol: Optional[str],
+    fuel_hike_detected: bool,
+    circular_relief_detected: bool,
+    energy_supply_detected: bool,
+) -> str:
+    ticker_context = _build_llm_ticker_context(
+        symbol=symbol,
+        fuel_hike_detected=fuel_hike_detected,
+        circular_relief_detected=circular_relief_detected,
+        energy_supply_detected=energy_supply_detected,
+    )
+    return f"""You are a geopolitical and sector-impact analyst for Pakistan Stock Exchange tickers.
+
+TICKER-SPECIFIC CONTEXT:
+{ticker_context}
+
+Return only valid JSON matching the requested schema."""
+
+
 def llm_assess_trajectory(
     news_items: List[Dict],
+    symbol: Optional[str] = None,
 ) -> Optional[Dict]:
     """
     Use Groq LLM (llama-3.3-70b) to assess geopolitical trajectory from news.
@@ -341,21 +578,38 @@ def llm_assess_trajectory(
 
     # Format news headlines with dates
     headlines = []
+    fuel_hike_detected = False
+    circular_relief_detected = False
+    energy_supply_detected = False
     for item in news_items[:20]:
         date = item.get("date") or item.get("published") or "unknown"
         source = item.get("source_name") or item.get("source") or "Unknown"
         title = item.get("title") or ""
         desc = (item.get("description") or item.get("summary") or "")[:200]
+        text = f"{title} {desc}".lower()
+        fuel_delta = parse_local_fuel_price_delta(text)
+        if fuel_delta is not None and fuel_delta > 0:
+            fuel_hike_detected = True
+        if score_circular_debt_signal(text) > 0:
+            circular_relief_detected = True
+        if is_energy_supply_shock_text(text) or any(term in text for term in POSITIVE_OIL_CONTEXT_TERMS):
+            energy_supply_detected = True
         headlines.append(f"[{date}] [{source}] {title}")
         if desc:
             headlines.append(f"   → {desc}")
 
     news_block = "\n".join(headlines)
+    system_prompt = _build_llm_trajectory_system_prompt(
+        symbol=symbol,
+        fuel_hike_detected=fuel_hike_detected,
+        circular_relief_detected=circular_relief_detected,
+        energy_supply_detected=energy_supply_detected,
+    )
 
-    prompt = f"""You are a geopolitical risk analyst specialising in Pakistan Stock Exchange (PSX / KSE-100).
+    prompt = f"""You are assessing the geopolitical trajectory for a Pakistan Stock Exchange ticker.
 
 Today is {current_date}. Analyse these recent news headlines and assess the geopolitical situation
-affecting Pakistan's stock market.
+affecting this ticker on the Pakistan Stock Exchange.
 
 NEWS HEADLINES:
 {news_block}
@@ -376,8 +630,8 @@ TASK: Produce a JSON assessment with these fields:
 
 3. "ceasefire_probability" (float 0.0-1.0): Likelihood of ceasefire/resolution within 48 hours
 
-4. "market_impact_pct" (float): Estimated NEXT-DAY PSX percentage move (negative = decline, positive = recovery).
-   Be specific. Consider: Is the crash already priced in? Is recovery starting?
+4. "market_impact_pct" (float): Estimated NEXT-DAY percentage move for THIS TICKER (negative = decline, positive = recovery).
+   Be specific. Consider: Is the shock bearish or bullish for this ticker's business model? Is the move already priced in?
 
 5. "key_events" (array): Up to 5 most important geopolitical events identified, each with:
    - "event" (string): Brief description
@@ -399,7 +653,10 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
             response_format={"type": "json_object"},
             temperature=0.3,
             max_tokens=800,
@@ -431,6 +688,7 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
 def assess_conflict_trajectory(
     news_items: List[Dict],
     use_llm: bool = True,
+    symbol: Optional[str] = None,
 ) -> Dict:
     """
     Hybrid assessment: combines keyword matching with LLM analysis.
@@ -526,7 +784,7 @@ def assess_conflict_trajectory(
     # ----- Step 2: LLM assessment (if enabled and available) -----
     llm_result = None
     if use_llm:
-        llm_result = llm_assess_trajectory(news_items)
+        llm_result = llm_assess_trajectory(news_items, symbol=symbol)
 
     # ----- Step 3: Merge keyword + LLM results -----
     if llm_result is not None:
@@ -663,7 +921,7 @@ def detect_geopolitical_shocks(
     num_shocks = len(shock_events)
 
     # Assess trajectory: is the situation getting better or worse?
-    trajectory = assess_conflict_trajectory(news_items)
+    trajectory = assess_conflict_trajectory(news_items, symbol=symbol)
 
     # Emergency multiplier: base from max severity, compounds with more shocks
     if max_severity >= 3.0:
@@ -850,12 +1108,20 @@ def default_geo_interpretation(enabled: bool = True) -> Dict[str, object]:
         "sector_interpretation": "generic",
         "polarity": "neutral" if enabled else "disabled",
         "bullish_for_upstream": False,
+        "bearish_for_downstream": False,
         "tailwind_score": 0.0,
         "cashflow_support_score": 0.0,
         "shock_severity_score": 0.0,
         "fuel_hike_magnitude_rs": 0.0,
         "fuel_hike_score": 0.0,
         "circular_debt_relief_score": 0.0,
+        "projected_inflation_spike": 0.0,
+        "interest_rate_squeeze_score": 0.0,
+        "margin_compression_score": 0.0,
+        "demand_destruction_score": 0.0,
+        "headwind_strength": 0.0,
+        "vulnerability_profile": {},
+        "evidence_quality": "disabled" if not enabled else "weak",
         "reason": (
             "No sector-specific geopolitical interpretation applied."
             if enabled
@@ -872,6 +1138,81 @@ def _has_positive_oil_context(text: str) -> bool:
 def _has_payment_relief_context(text: str) -> bool:
     text = (text or "").lower()
     return any(term in text for term in UPSTREAM_PAYMENT_RELIEF_TERMS)
+
+
+def _normalise_source_name(source: object) -> str:
+    return re.sub(r"\s+", " ", str(source or "").strip().lower())
+
+
+def _get_source_bucket(source: object) -> str:
+    source_name = _normalise_source_name(source)
+    if source_name in HIGH_CRED_SOURCES:
+        return "high"
+    if source_name in MEDIUM_CRED_SOURCES:
+        return "medium"
+    return "low"
+
+
+def _has_rate_pressure_context(text: str) -> bool:
+    text = (text or "").lower()
+    return any(term in text for term in DOWNSTREAM_RATE_PRESSURE_TERMS)
+
+
+def _has_sector_macro_context(text: str, sector: str) -> bool:
+    text = (text or "").lower()
+    return any(term in text for term in DOWNSTREAM_SECTOR_MACRO_TERMS.get(sector, ()))
+
+
+def _assess_downstream_evidence_quality(news_items: List[Dict], sector: str) -> str:
+    fuel_confirmed = False
+    secondary_high = False
+    secondary_medium_sources = set()
+    secondary_any = False
+
+    for item in news_items or []:
+        text = " ".join(
+            [
+                str(item.get("title", "")),
+                str(item.get("description", "")),
+                str(item.get("summary", "")),
+            ]
+        ).lower()
+        bucket = _get_source_bucket(item.get("source"))
+        fuel_delta = parse_local_fuel_price_delta(text)
+        if fuel_delta is not None and fuel_delta > 0 and bucket in {"high", "medium"}:
+            fuel_confirmed = True
+
+        secondary_hit = (
+            is_energy_supply_shock_text(text)
+            or _has_rate_pressure_context(text)
+            or _has_sector_macro_context(text, sector)
+        )
+        if not secondary_hit:
+            continue
+
+        secondary_any = True
+        if bucket == "high":
+            secondary_high = True
+        elif bucket == "medium":
+            secondary_medium_sources.add(_normalise_source_name(item.get("source")))
+
+    if not fuel_confirmed:
+        return "weak"
+    if secondary_high or len(secondary_medium_sources) >= 2:
+        return "good"
+    if secondary_any:
+        return "limited"
+    return "weak"
+
+
+def _downstream_reason_for_sector(sector: str) -> str:
+    if sector == "autos":
+        return "Fuel shock and tight financing are crushing demand-sensitive names."
+    if sector in {"cement", "steel"}:
+        return "Energy inputs and tighter construction demand are compressing margins."
+    if sector == "technology":
+        return "Domestic macro drag exists, but FX/export insulation reduces the penalty."
+    return "Downstream sector vulnerability is being treated as a geopolitical headwind."
 
 
 def build_geo_interpretation(
@@ -960,38 +1301,108 @@ def build_geo_interpretation(
             "sector_interpretation": "upstream_energy_tailwind",
             "polarity": "bullish_for_upstream",
             "bullish_for_upstream": True,
+            "bearish_for_downstream": False,
             "tailwind_score": round(tailwind_score, 2),
             "cashflow_support_score": round(cashflow_support_score, 2),
             "shock_severity_score": round(shock_severity_score, 2),
             "fuel_hike_magnitude_rs": round(max_fuel_hike_rs, 2),
             "fuel_hike_score": round(fuel_hike_score, 2),
             "circular_debt_relief_score": round(circular_debt_relief_score, 2),
+            "projected_inflation_spike": 0.0,
+            "interest_rate_squeeze_score": 0.0,
+            "margin_compression_score": 0.0,
+            "demand_destruction_score": 0.0,
+            "headwind_strength": 0.0,
+            "vulnerability_profile": {},
+            "evidence_quality": "good" if fuel_hike_detected or circular_relief_detected else "weak",
             "reason": ". ".join(reasons),
         }
+
+    vulnerability = DOWNSTREAM_VULNERABILITY.get(symbol_upper)
+    if vulnerability:
+        sector_name = str(vulnerability.get("sector", ""))
+        evidence_quality = _assess_downstream_evidence_quality(news_items, sector_name)
+        projected_inflation_spike = _clamp01(
+            (0.55 * fuel_hike_score)
+            + (0.30 * shock_severity_score)
+            + (0.15 * energy)
+        )
+        interest_rate_squeeze_score = _clamp01(
+            projected_inflation_spike * float(vulnerability["interest_rate_drag"])
+        )
+        margin_compression_score = _clamp01(
+            ((0.70 * energy) + (0.30 * shock_severity_score))
+            * float(vulnerability["energy_input_drag"])
+        )
+        demand_destruction_score = _clamp01(
+            (
+                (0.45 * projected_inflation_spike)
+                + (0.30 * fuel_hike_score)
+                + (0.25 * interest_rate_squeeze_score)
+            )
+            * float(vulnerability["consumer_demand_drag"])
+        )
+        headwind_strength = _clamp01(
+            (0.40 * margin_compression_score)
+            + (0.35 * interest_rate_squeeze_score)
+            + (0.30 * demand_destruction_score)
+            - (0.25 * float(vulnerability["fx_offset"]))
+        )
+        bearish_for_downstream = (
+            fuel_hike_score >= 0.35
+            and projected_inflation_spike >= 0.40
+            and evidence_quality == "good"
+        )
+
+        interpretation.update(
+            {
+                "tailwind_score": 0.0,
+                "cashflow_support_score": 0.0,
+                "shock_severity_score": round(shock_severity_score, 2),
+                "fuel_hike_magnitude_rs": round(max_fuel_hike_rs, 2),
+                "fuel_hike_score": round(fuel_hike_score, 2),
+                "circular_debt_relief_score": round(circular_debt_relief_score, 2),
+                "projected_inflation_spike": round(projected_inflation_spike, 2),
+                "interest_rate_squeeze_score": round(interest_rate_squeeze_score, 2),
+                "margin_compression_score": round(margin_compression_score, 2),
+                "demand_destruction_score": round(demand_destruction_score, 2),
+                "headwind_strength": round(headwind_strength, 2),
+                "vulnerability_profile": {
+                    "sector": sector_name,
+                    "energy_input_drag": vulnerability["energy_input_drag"],
+                    "interest_rate_drag": vulnerability["interest_rate_drag"],
+                    "consumer_demand_drag": vulnerability["consumer_demand_drag"],
+                    "fx_offset": vulnerability["fx_offset"],
+                },
+                "evidence_quality": evidence_quality,
+                "bearish_for_downstream": bearish_for_downstream,
+            }
+        )
+        if bearish_for_downstream:
+            interpretation["sector_interpretation"] = "downstream_macro_headwind"
+            interpretation["polarity"] = "bearish_for_downstream"
+            interpretation["reason"] = _downstream_reason_for_sector(sector_name)
+            return interpretation
+
+        interpretation["reason"] = (
+            "Downstream vulnerability detected, but evidence quality was not strong enough "
+            "to override the generic geo interpretation."
+        )
 
     risk_pressure = _clamp01((0.45 * conflict) + (0.35 * risk_off) + (0.20 * regional))
     interpretation["polarity"] = "risk_off" if risk_pressure >= 0.25 else "neutral"
     interpretation["bullish_for_upstream"] = False
-    interpretation["tailwind_score"] = (
-        round(tailwind_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
-    interpretation["cashflow_support_score"] = (
-        round(cashflow_support_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
-    interpretation["shock_severity_score"] = (
-        round(shock_severity_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
-    interpretation["fuel_hike_magnitude_rs"] = (
-        round(max_fuel_hike_rs, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
-    interpretation["fuel_hike_score"] = (
-        round(fuel_hike_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
-    interpretation["circular_debt_relief_score"] = (
-        round(circular_debt_relief_score, 2) if symbol_upper in UPSTREAM_EP_SYMBOLS else 0.0
-    )
+    if symbol_upper in UPSTREAM_EP_SYMBOLS:
+        interpretation["tailwind_score"] = round(tailwind_score, 2)
+        interpretation["cashflow_support_score"] = round(cashflow_support_score, 2)
+        interpretation["shock_severity_score"] = round(shock_severity_score, 2)
+        interpretation["fuel_hike_magnitude_rs"] = round(max_fuel_hike_rs, 2)
+        interpretation["fuel_hike_score"] = round(fuel_hike_score, 2)
+        interpretation["circular_debt_relief_score"] = round(circular_debt_relief_score, 2)
     interpretation["reason"] = (
-        "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
+        interpretation["reason"]
+        if vulnerability
+        else "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
     )
     return interpretation
 
@@ -1026,7 +1437,10 @@ def build_geopolitical_daily_adjustments(
                 "shock_detected": False,
                 "overlay_mode": "risk_off",
                 "bullish_for_upstream": False,
+                "bearish_for_downstream": False,
                 "tailwind_strength": 0.0,
+                "headwind_strength": 0.0,
+                "evidence_quality": "weak",
                 "matched_patterns": [],
                 "shock_reason": "No geopolitical shock detected",
                 "methodology": "Deterministic geo risk post-processing (empty horizon)",
@@ -1060,6 +1474,13 @@ def build_geopolitical_daily_adjustments(
     shock_severity_score = _clamp01(float(interp.get("shock_severity_score", 0.0) or 0.0))
     fuel_hike_score = _clamp01(float(interp.get("fuel_hike_score", 0.0) or 0.0))
     circular_debt_relief_score = _clamp01(float(interp.get("circular_debt_relief_score", 0.0) or 0.0))
+    bearish_for_downstream = bool(interp.get("bearish_for_downstream", False))
+    projected_inflation_spike = _clamp01(float(interp.get("projected_inflation_spike", 0.0) or 0.0))
+    interest_rate_squeeze_score = _clamp01(float(interp.get("interest_rate_squeeze_score", 0.0) or 0.0))
+    margin_compression_score = _clamp01(float(interp.get("margin_compression_score", 0.0) or 0.0))
+    demand_destruction_score = _clamp01(float(interp.get("demand_destruction_score", 0.0) or 0.0))
+    headwind_strength = _clamp01(float(interp.get("headwind_strength", 0.0) or 0.0))
+    evidence_quality = str(interp.get("evidence_quality", "weak") or "weak")
 
     sector = SYMBOL_SECTOR.get((symbol or "").upper(), "")
     energy_shock_mode = bool(shock_detected) or energy_war_overlap > 0 or (
@@ -1083,10 +1504,16 @@ def build_geopolitical_daily_adjustments(
             + (0.05 * circular_debt_relief_score)
         )
         overlay_mode = "upstream_tailwind"
+    elif bearish_for_downstream:
+        lower_cap = -0.06 * emergency_multiplier
+        upper_cap = 0.01 * emergency_multiplier
+        tailwind_strength = 0.0
+        overlay_mode = "downstream_headwind"
     else:
         lower_cap = -0.05 * emergency_multiplier
         upper_cap = 0.02 * emergency_multiplier
         tailwind_strength = 0.0
+        headwind_strength = 0.0
         overlay_mode = "risk_off"
 
     adjustments: List[Dict] = []
@@ -1101,8 +1528,18 @@ def build_geopolitical_daily_adjustments(
                 + (0.004 * fuel_hike_score)
             )
             raw_adjustment = positive_rate * volume_multiplier * decay * emergency_multiplier
+        elif bearish_for_downstream:
+            positive_rate = 0.0
+            negative_rate = (
+                0.010
+                + (0.010 * headwind_strength)
+                + (0.006 * projected_inflation_spike)
+                + (0.004 * interest_rate_squeeze_score)
+            )
+            raw_adjustment = -negative_rate * volume_multiplier * decay * emergency_multiplier
         else:
             positive_rate = 0.0
+            negative_rate = 0.0
             raw_adjustment = -0.04 * risk_score * volume_multiplier * decay * emergency_multiplier
         capped_adjustment = max(lower_cap, min(upper_cap, raw_adjustment))
         pct = capped_adjustment * 100.0
@@ -1116,6 +1553,14 @@ def build_geopolitical_daily_adjustments(
             event_impacts.append(f"shock_severity={shock_severity_score:.3f}")
             event_impacts.append(f"fuel_hike_score={fuel_hike_score:.3f}")
             event_impacts.append(f"positive_rate={positive_rate:.4f}")
+        elif bearish_for_downstream:
+            event_impacts.append(f"downstream_headwind={headwind_strength:.3f}")
+            event_impacts.append(f"inflation_spike={projected_inflation_spike:.3f}")
+            event_impacts.append(f"rate_squeeze={interest_rate_squeeze_score:.3f}")
+            event_impacts.append(f"margin_compression={margin_compression_score:.3f}")
+            event_impacts.append(f"demand_destruction={demand_destruction_score:.3f}")
+            event_impacts.append(f"negative_rate={negative_rate:.4f}")
+            event_impacts.append(f"evidence_quality={evidence_quality}")
         if shock_detected:
             event_impacts.append(f"emergency_multiplier={emergency_multiplier}")
             event_impacts.append(f"shock_half_life={half_life}")
@@ -1141,6 +1586,8 @@ def build_geopolitical_daily_adjustments(
         methodology += f" [SHOCK MODE: {emergency_multiplier}x emergency multiplier]"
     if bullish_for_upstream:
         methodology += " [UPSTREAM TAILWIND MODE]"
+    elif bearish_for_downstream:
+        methodology += " [DOWNSTREAM HEADWIND MODE]"
 
     return {
         "adjustments": adjustments,
@@ -1152,7 +1599,10 @@ def build_geopolitical_daily_adjustments(
             "shock_detected": shock_detected,
             "overlay_mode": overlay_mode,
             "bullish_for_upstream": bullish_for_upstream,
+            "bearish_for_downstream": bearish_for_downstream,
             "tailwind_strength": round(tailwind_strength, 6),
+            "headwind_strength": round(headwind_strength, 6),
+            "evidence_quality": evidence_quality,
             "emergency_multiplier": emergency_multiplier if shock_detected else 1.0,
             "shock_events": shock.get("shock_events", []) if shock_detected else [],
             "matched_patterns": shock.get("matched_patterns", []),

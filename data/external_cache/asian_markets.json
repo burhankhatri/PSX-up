@@ -1,0 +1,21 @@
+{
+  "nikkei": {
+    "current": 54330.05,
+    "prev_close": 55620.84,
+    "change_pct": -2.32,
+    "open_gap_pct": -3.77,
+    "status": "open"
+  },
+  "kospi": {
+    "current": 5541.93,
+    "prev_close": 5584.87,
+    "change_pct": -0.77,
+    "open_gap_pct": -1.1,
+    "status": "open"
+  },
+  "asian_risk_off_signal": 0.5,
+  "crash_warning": true,
+  "crash_severity": "moderate",
+  "warning_message": "Nikkei dropped 2.3%. Regional sell-off risk for PSX.",
+  "checked_at": "2026-03-10T06:00:34.847915"
+}

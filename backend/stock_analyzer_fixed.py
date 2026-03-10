@@ -91,6 +91,52 @@ async def safe_send(websocket: WebSocket, data: dict) -> bool:
     return False
 
 
+def _merge_geo_overlay_news(symbol: str, sentiment_result: Optional[dict]) -> tuple[list[dict], dict]:
+    """Geo-only news expansion so the overlay can use sector/macro evidence without moving baseline sentiment."""
+    base_news = [
+        item for item in ((sentiment_result or {}).get("news_items", []) or [])
+        if isinstance(item, dict)
+    ]
+    merged = list(base_news)
+    diagnostics = {}
+
+    try:
+        from backend.enhanced_news_fetcher import (
+            determine_retrieval_mode,
+            fetch_multi_source_news,
+            normalize_news_key,
+        )
+    except Exception:
+        return merged, diagnostics
+
+    try:
+        fetch_result = fetch_multi_source_news(
+            symbol=symbol,
+            retrieval_mode=determine_retrieval_mode(symbol, retrieval_mode="auto"),
+            include_diagnostics=True,
+            geo_mode=True,
+        )
+    except Exception:
+        return merged, diagnostics
+
+    diagnostics = fetch_result.get("news_fetch_diagnostics", {})
+    seen = set()
+    unique_news = []
+    for item in merged + list(fetch_result.get("news_items", []) or []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            key = normalize_news_key(item)
+        except Exception:
+            key = f"{item.get('title', '')[:180]}::{str(item.get('date', ''))[:10]}::{item.get('url', '')[-120:]}"
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_news.append(item)
+
+    return unique_news, diagnostics
+
+
 def fetch_month_data(symbol: str, month: int, year: int):
     """Fetch historical data for a specific month"""
     url = "https://dps.psx.com.pk/historical"
@@ -878,11 +924,13 @@ def _run_shadow_comparison(
     comparison: dict = {"enabled": True, "status": "ok"}
 
     # 1. Compute/reuse geo features
+    geo_news_items, geo_news_diagnostics = _merge_geo_overlay_news(symbol, sentiment_result)
     if geo_features is None:
-        news_items = (sentiment_result or {}).get("news_items", [])
-        geo_features = get_geopolitical_features_from_news(news_items, symbol)
+        geo_features = get_geopolitical_features_from_news(geo_news_items, symbol)
     comparison["geo_features"] = geo_features or {}
-    news_items = (sentiment_result or {}).get("news_items", [])
+    news_items = geo_news_items
+    if geo_news_diagnostics:
+        comparison["overlay_news_diagnostics"] = geo_news_diagnostics
     shock_data = detect_geopolitical_shocks(news_items, symbol) if news_items else {}
     geo_interpretation = build_geo_interpretation(
         news_items=news_items,
@@ -1467,8 +1515,20 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 "sector_interpretation": "generic",
                 "polarity": "neutral" if geo_enabled else "disabled",
                 "bullish_for_upstream": False,
+                "bearish_for_downstream": False,
                 "tailwind_score": 0.0,
                 "cashflow_support_score": 0.0,
+                "shock_severity_score": 0.0,
+                "fuel_hike_magnitude_rs": 0.0,
+                "fuel_hike_score": 0.0,
+                "circular_debt_relief_score": 0.0,
+                "projected_inflation_spike": 0.0,
+                "interest_rate_squeeze_score": 0.0,
+                "margin_compression_score": 0.0,
+                "demand_destruction_score": 0.0,
+                "headwind_strength": 0.0,
+                "vulnerability_profile": {},
+                "evidence_quality": "weak" if geo_enabled else "disabled",
                 "reason": (
                     "No sector-specific geopolitical interpretation applied."
                     if geo_enabled
@@ -1490,8 +1550,41 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     build_geo_interpretation,
                     detect_geopolitical_shocks,
                 )
-                news_items = (sentiment_result or {}).get("news_items", [])
+                news_items, geo_news_diagnostics = _merge_geo_overlay_news(symbol, sentiment_result)
                 geo_features = get_geopolitical_features_from_news(news_items, symbol)
+
+                # Asian market risk-off signal — boost global_risk_off when Asian markets crash
+                try:
+                    from backend.external_features import fetch_asian_market_realtime
+                    asian_status = fetch_asian_market_realtime()
+                    asian_signal = asian_status.get("asian_risk_off_signal", 0.0)
+                    if asian_signal > 0:
+                        # Boost global risk-off score based on Asian market crash severity
+                        risk_off_boost = asian_signal * 0.4  # 0.2 for moderate, 0.4 for severe
+                        geo_features["geo_global_risk_off"] = min(1.0,
+                            geo_features.get("geo_global_risk_off", 0.0) + risk_off_boost)
+                        # Sector-specific amplifiers
+                        energy_symbols = ['OGDC', 'PPL', 'PSO', 'POL', 'MARI', 'ATRL']
+                        banking_symbols = ['HBL', 'MCB', 'UBL', 'BAHL', 'NBP', 'ABL', 'MEBL']
+                        if symbol.upper() in energy_symbols:
+                            geo_features["geo_energy_supply_risk"] = min(1.0,
+                                geo_features.get("geo_energy_supply_risk", 0.0) + asian_signal * 0.3)
+                        elif symbol.upper() in banking_symbols:
+                            geo_features["geo_global_risk_off"] = min(1.0,
+                                geo_features.get("geo_global_risk_off", 0.0) + asian_signal * 0.2)
+                        # Add interpretation context
+                        severity = asian_status.get("crash_severity", "none")
+                        if severity != "none":
+                            nk_pct = asian_status.get("nikkei", {}).get("change_pct", 0)
+                            ks_pct = asian_status.get("kospi", {}).get("change_pct", 0)
+                            news_items.append({
+                                "title": f"Asian Market Crash Signal: Nikkei {nk_pct:+.1f}%, KOSPI {ks_pct:+.1f}%",
+                                "source": "Asian Markets Monitor",
+                                "date": datetime.now().strftime("%Y-%m-%d"),
+                                "sentiment_score": -0.8 if severity == "severe" else -0.5,
+                            })
+                except Exception:
+                    asian_signal = 0.0
 
                 # Shock detection – emergency multiplier for extreme events
                 shock_data = detect_geopolitical_shocks(news_items, symbol)
@@ -1516,6 +1609,14 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     baseline_with_current,
                     geo_adjustment_data.get("adjustments", []),
                 )
+                # Asian crash day: dampen confidence on bullish predictions
+                if asian_signal >= 0.5 and predictions_with_geo:
+                    dampener = 0.85 if asian_signal >= 1.0 else 0.92
+                    for pred in predictions_with_geo:
+                        if isinstance(pred, dict) and pred.get("direction", "").lower() in ("up", "bullish"):
+                            if "confidence" in pred:
+                                pred["confidence"] = round(pred["confidence"] * dampener, 2)
+
                 geo_comparison.update(
                     {
                         "applied": bool(predictions_with_geo),
@@ -1524,6 +1625,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                         "shock_data": shock_data,
                         "shock_reason": shock_data.get("shock_reason", "No geopolitical shock detected"),
                         "interpretation": geo_interpretation,
+                        "overlay_news_diagnostics": geo_news_diagnostics,
+                        "asian_market_signal": asian_signal,
                     }
                 )
 

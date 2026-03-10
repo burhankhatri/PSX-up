@@ -893,6 +893,23 @@
             background: linear-gradient(90deg, #22c55e 0%, #16a34a 60%, #166534 100%);
         }
 
+        .geo-catalyst-card-bearish {
+            border-color: rgba(239, 68, 68, 0.2);
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.06), rgba(255, 255, 255, 0.98));
+        }
+
+        .geo-catalyst-card-bearish .geo-catalyst-title {
+            color: #991b1b;
+        }
+
+        .geo-catalyst-fill-bearish {
+            background: linear-gradient(90deg, #fda4af 0%, #ef4444 55%, #b91c1c 100%);
+        }
+
+        .geo-catalyst-fill-summary-bearish {
+            background: linear-gradient(90deg, #fb7185 0%, #dc2626 60%, #991b1b 100%);
+        }
+
         .geo-catalyst-foot {
             margin-top: 10px;
             font-size: 0.72rem;
@@ -1537,6 +1554,83 @@
                 grid-template-columns: repeat(2, minmax(120px, 1fr));
             }
         }
+
+        /* Asian Market Crash Warning Banner */
+        .asian-crash-banner {
+            display: none;
+            background: linear-gradient(135deg, #1a0a0a, #2a1010);
+            border: 1.5px solid #ff4444;
+            border-radius: 14px;
+            padding: 16px 22px;
+            margin-bottom: 20px;
+            animation: crashPulse 2s ease-in-out infinite;
+        }
+        .asian-crash-banner.severe {
+            border-color: #ff2222;
+            background: linear-gradient(135deg, #2a0505, #3a0a0a);
+        }
+        .asian-crash-banner.moderate {
+            border-color: #ff8800;
+            background: linear-gradient(135deg, #1a1005, #2a1a0a);
+        }
+        .asian-crash-banner.mild {
+            border-color: #ffaa00;
+            background: linear-gradient(135deg, #1a1508, #2a200a);
+            animation: none;
+        }
+        .asian-crash-banner .crash-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .asian-crash-banner.severe .crash-title { color: #ff4444; }
+        .asian-crash-banner.moderate .crash-title { color: #ff8800; }
+        .asian-crash-banner.mild .crash-title { color: #ffaa00; }
+        .asian-crash-banner .crash-message {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .asian-crash-banner .crash-indices {
+            display: flex;
+            gap: 20px;
+            font-size: 0.82rem;
+        }
+        .asian-crash-banner .crash-index {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .asian-crash-banner .crash-index .idx-name { color: var(--text-muted); }
+        .asian-crash-banner .crash-index .idx-value { font-weight: 600; }
+        .asian-crash-banner .idx-down { color: #ff4444; }
+        .asian-crash-banner .idx-up { color: #22cc66; }
+        .asian-crash-banner .crash-dismiss {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+        @keyframes crashPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+
+        /* Portfolio loading overlay */
+        .portfolio-loading-indicator {
+            text-align: center;
+            padding: 8px;
+            color: var(--lime);
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
     </style>
 </head>
 
@@ -1643,6 +1737,26 @@
 
         <!-- DASHBOARD VIEW -->
         <div id="dashboardView" class="view-section active">
+            <!-- Asian Market Crash Warning Banner -->
+            <div id="asianCrashBanner" class="asian-crash-banner" style="position:relative;">
+                <button class="crash-dismiss" onclick="dismissCrashBanner()">&times;</button>
+                <div class="crash-title">
+                    <span id="crashIcon">&#9888;</span>
+                    <span id="crashTitle">Regional Crash Warning</span>
+                </div>
+                <div class="crash-message" id="crashMessage"></div>
+                <div class="crash-indices">
+                    <div class="crash-index">
+                        <span class="idx-name">Nikkei 225:</span>
+                        <span class="idx-value" id="crashNikkei">--</span>
+                    </div>
+                    <div class="crash-index">
+                        <span class="idx-name">KOSPI:</span>
+                        <span class="idx-value" id="crashKospi">--</span>
+                    </div>
+                </div>
+            </div>
+
             <h2 class="section-header">Start Analysis</h2>
 
             <div class="input-card">
@@ -1979,6 +2093,13 @@
 
         <!-- PORTFOLIO VIEW -->
         <div id="portfolioView" class="view-section">
+            <!-- Portfolio crash context (shown when Asian markets are down) -->
+            <div id="portfolioCrashNote" style="display:none; background:linear-gradient(135deg,#1a0a0a,#2a1010); border:1.5px solid #ff4444; border-radius:12px; padding:12px 18px; margin-bottom:16px; font-size:0.84rem; color:#ff8888;">
+                <strong>Markets under pressure</strong> — Asian markets signaled sell-off. Your portfolio prices may be declining today.
+            </div>
+            <div id="portfolioLoadingIndicator" class="portfolio-loading-indicator" style="display:none;">
+                Refreshing prices...
+            </div>
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:30px;">
                 <h2 class="section-header" style="margin-bottom:0;">My Portfolio</h2>
                 <button class="portfolio-refresh-btn" onclick="loadPortfolio()">
@@ -2425,27 +2546,27 @@
         }
 
         function renderGeoCatalystBreakdown(interpretation, summary, features) {
+            const overlayMode = summary.overlay_mode || 'risk_off';
             const shockSeverity = clampGeoValue(interpretation.shock_severity_score);
             const energyTailwind = clampGeoValue(interpretation.tailwind_score);
             const fuelHikeScore = clampGeoValue(interpretation.fuel_hike_score);
             const debtReliefScore = clampGeoValue(interpretation.circular_debt_relief_score);
             const cashflowSupport = clampGeoValue(interpretation.cashflow_support_score);
             const netTailwindStrength = clampGeoValue(summary.tailwind_strength);
+            const projectedInflationSpike = clampGeoValue(interpretation.projected_inflation_spike);
+            const interestRateSqueeze = clampGeoValue(interpretation.interest_rate_squeeze_score);
+            const marginCompression = clampGeoValue(interpretation.margin_compression_score);
+            const demandDestruction = clampGeoValue(interpretation.demand_destruction_score);
+            const headwindStrength = clampGeoValue(summary.headwind_strength || interpretation.headwind_strength);
             const energySupplyRisk = clampGeoValue(features.geo_energy_supply_risk);
             const riskScore = clampGeoValue(summary.risk_score);
             const fuelHikeRs = Number(interpretation.fuel_hike_magnitude_rs);
+            const sectorName = interpretation.vulnerability_profile && interpretation.vulnerability_profile.sector
+                ? interpretation.vulnerability_profile.sector
+                : '';
+            const evidenceQuality = interpretation.evidence_quality || summary.evidence_quality || 'weak';
 
-            const shouldRender = [
-                shockSeverity,
-                energyTailwind,
-                fuelHikeScore,
-                debtReliefScore,
-                cashflowSupport,
-                netTailwindStrength,
-            ].some(v => v > 0.01);
-            if (!shouldRender) return '';
-
-            const rows = [
+            const bullishRows = [
                 {
                     label: 'Shock Severity',
                     value: shockSeverity,
@@ -2477,27 +2598,74 @@
                     cue: 'Applied in geo overlay math',
                     summary: true,
                 },
-            ].map(item => `
+            ];
+            const bearishRows = [
+                {
+                    label: 'Margin Compression',
+                    value: marginCompression,
+                    cue: `Sector: ${sectorName || 'downstream'}`,
+                },
+                {
+                    label: 'Interest Rate Squeeze',
+                    value: interestRateSqueeze,
+                    cue: evidenceQuality === 'good' ? 'High-confidence macro squeeze' : `Evidence: ${evidenceQuality}`,
+                },
+                {
+                    label: 'Demand Destruction',
+                    value: demandDestruction,
+                    cue: fuelHikeRs > 0 ? `Rs${fuelHikeRs.toFixed(0)} hike hitting demand` : 'Consumer squeeze context',
+                },
+                {
+                    label: 'Projected Inflation Spike',
+                    value: projectedInflationSpike,
+                    cue: shockSeverity > 0 ? 'Fuel + geo shock inflation pass-through' : 'Fuel-price pass-through',
+                },
+                {
+                    label: 'Net Headwind Strength',
+                    value: headwindStrength,
+                    cue: 'Applied in geo overlay math',
+                    summary: true,
+                },
+            ];
+
+            const activeRows = overlayMode === 'downstream_headwind' ? bearishRows : bullishRows;
+            const shouldRender = activeRows.some(item => item.value > 0.01);
+            if (!shouldRender) return '';
+
+            const cardClass = overlayMode === 'downstream_headwind'
+                ? 'geo-catalyst-card geo-catalyst-card-bearish'
+                : 'geo-catalyst-card';
+            const fillClass = overlayMode === 'downstream_headwind'
+                ? 'geo-catalyst-fill geo-catalyst-fill-bearish'
+                : 'geo-catalyst-fill';
+            const summaryFillClass = overlayMode === 'downstream_headwind'
+                ? `${fillClass} geo-catalyst-fill-summary-bearish`
+                : `${fillClass} geo-catalyst-fill-summary`;
+            const footText = overlayMode === 'downstream_headwind'
+                ? `Generic risk-off drag remains ${(riskScore * 100).toFixed(0)}%. Evidence quality: ${evidenceQuality}.`
+                : `Generic risk-off drag still present: ${(riskScore * 100).toFixed(0)}%.`;
+
+            const rows = activeRows.map(item => `
                 <div class="geo-catalyst-row">
                     <div class="geo-catalyst-head">
                         <div class="geo-catalyst-label">${item.label}</div>
                         <div class="geo-catalyst-meta">${(item.value * 100).toFixed(0)}% · ${item.cue}</div>
                     </div>
                     <div class="geo-catalyst-track">
-                        <div class="geo-catalyst-fill ${item.summary ? 'geo-catalyst-fill-summary' : ''}" style="width:${(item.value * 100).toFixed(0)}%;"></div>
+                        <div class="${item.summary ? summaryFillClass : fillClass}" style="width:${(item.value * 100).toFixed(0)}%;"></div>
                     </div>
                 </div>
             `).join('');
 
             return `
-                <div class="geo-catalyst-card">
+                <div class="${cardClass}">
                     <div class="geo-catalyst-title">Catalyst Breakdown</div>
                     <div class="geo-catalyst-subtitle">
                         ${interpretation.reason || 'Upstream tailwinds outweighed generic risk-off pressure.'}
                     </div>
                     <div class="geo-catalyst-list">${rows}</div>
                     <div class="geo-catalyst-foot">
-                        Generic risk-off drag still present: ${(riskScore * 100).toFixed(0)}%.
+                        ${footText}
                     </div>
                 </div>
             `;
@@ -2578,16 +2746,25 @@
             const shockReason = geoMeta.shock_reason || summary.shock_reason || '';
             const interpretationReason = interpretation.reason || '';
             const interpretationPolarity = interpretation.polarity || 'neutral';
+            const overlayMode = summary.overlay_mode || 'risk_off';
             const tailwindScore = Number(interpretation.tailwind_score);
             const cashflowSupportScore = Number(interpretation.cashflow_support_score);
+            const headwindStrength = Number(summary.headwind_strength || interpretation.headwind_strength);
+            const sectorName = interpretation.vulnerability_profile && interpretation.vulnerability_profile.sector
+                ? interpretation.vulnerability_profile.sector
+                : 'n/a';
             const catalystBreakdownHtml = renderGeoCatalystBreakdown(interpretation, summary, features);
             const interpretationHtml = interpretationReason
                 ? `
                     <div class="geo-overlay-status">
                         Sector interpretation: ${interpretation.sector_interpretation || 'generic'}<br>
                         Polarity: ${interpretationPolarity}<br>
-                        Tailwind score: ${Number.isFinite(tailwindScore) ? `${(tailwindScore * 100).toFixed(0)}%` : 'N/A'}
-                        | Cashflow support: ${Number.isFinite(cashflowSupportScore) ? `${(cashflowSupportScore * 100).toFixed(0)}%` : 'N/A'}<br>
+                        ${overlayMode === 'downstream_headwind'
+                            ? `Headwind score: ${Number.isFinite(headwindStrength) ? `${(headwindStrength * 100).toFixed(0)}%` : 'N/A'}
+                               | Sector: ${sectorName}
+                               | Evidence: ${interpretation.evidence_quality || summary.evidence_quality || 'weak'}`
+                            : `Tailwind score: ${Number.isFinite(tailwindScore) ? `${(tailwindScore * 100).toFixed(0)}%` : 'N/A'}
+                               | Cashflow support: ${Number.isFinite(cashflowSupportScore) ? `${(cashflowSupportScore * 100).toFixed(0)}%` : 'N/A'}`}<br>
                         ${interpretationReason}
                     </div>
                 `
@@ -2949,6 +3126,87 @@
         }
 
         let portfolioRefreshTimer = null;
+        let lastPortfolioFetchAt = 0;
+        let crashBannerDismissed = false;
+        let asianMarketCrashActive = false;
+
+        // ===================================================================
+        // ASIAN MARKET CRASH DETECTION
+        // ===================================================================
+        async function checkAsianMarketStatus() {
+            if (crashBannerDismissed) return;
+            try {
+                const resp = await fetch('/api/asian-market-status');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const banner = document.getElementById('asianCrashBanner');
+                const portfolioCrashNote = document.getElementById('portfolioCrashNote');
+                if (!banner) return;
+
+                asianMarketCrashActive = data.crash_warning === true;
+
+                if (data.crash_warning && !crashBannerDismissed) {
+                    banner.className = 'asian-crash-banner ' + (data.crash_severity || 'moderate');
+                    banner.style.display = 'block';
+
+                    const titleEl = document.getElementById('crashTitle');
+                    if (data.crash_severity === 'severe') {
+                        titleEl.textContent = 'SEVERE: Regional Market Crash';
+                    } else if (data.crash_severity === 'moderate') {
+                        titleEl.textContent = 'WARNING: Asian Markets Down';
+                    } else {
+                        titleEl.textContent = 'CAUTION: Asian Markets Under Pressure';
+                    }
+
+                    document.getElementById('crashMessage').textContent = data.warning_message || '';
+
+                    const nkEl = document.getElementById('crashNikkei');
+                    const ksEl = document.getElementById('crashKospi');
+                    if (data.nikkei && data.nikkei.change_pct != null) {
+                        const pct = data.nikkei.change_pct;
+                        nkEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                        nkEl.className = 'idx-value ' + (pct < 0 ? 'idx-down' : 'idx-up');
+                    }
+                    if (data.kospi && data.kospi.change_pct != null) {
+                        const pct = data.kospi.change_pct;
+                        ksEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                        ksEl.className = 'idx-value ' + (pct < 0 ? 'idx-down' : 'idx-up');
+                    }
+
+                    if (portfolioCrashNote) portfolioCrashNote.style.display = 'block';
+                } else {
+                    banner.style.display = 'none';
+                    if (portfolioCrashNote) portfolioCrashNote.style.display = 'none';
+                }
+            } catch (e) {
+                // Silently fail — don't block main app
+            }
+        }
+
+        function dismissCrashBanner() {
+            crashBannerDismissed = true;
+            const banner = document.getElementById('asianCrashBanner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        // Check on page load and every 5 minutes
+        checkAsianMarketStatus();
+        setInterval(checkAsianMarketStatus, 300000);
+
+        // Refresh portfolio when user returns to browser tab
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                const ptView = document.getElementById('portfolioView');
+                if (ptView && ptView.classList.contains('active')) {
+                    if (Date.now() - lastPortfolioFetchAt > 15000) {
+                        loadPortfolio();
+                    }
+                }
+                // Also recheck Asian market status
+                checkAsianMarketStatus();
+            }
+        });
+
         const viewToSectionId = {
             dashboard: 'dashboardView',
             commodities: 'commoditiesView',
@@ -2972,7 +3230,10 @@
             if (view === 'scanner') {
                 loadScanner();
             } else if (view === 'portfolio') {
-                loadPortfolio();
+                // Always fetch fresh prices on portfolio view entry if stale >15s
+                if (Date.now() - lastPortfolioFetchAt > 15000) {
+                    loadPortfolio();
+                }
                 if (ptForecastTotal === 0 && Object.keys(ptForecastCardState || {}).length === 0) {
                     ptRestoreForecastState();
                 }
@@ -4973,6 +5234,7 @@
         }
 
         async function loadPortfolio() {
+            lastPortfolioFetchAt = Date.now();
             const holdings = ptLoadHoldings();
             ptSyncForecastStateWithHoldings(holdings);
             const prices = {};
@@ -4984,6 +5246,14 @@
             let holdingsMutated = false;
             const errEl = document.getElementById('ptAddError');
             if (errEl) errEl.style.display = 'none';
+
+            // Show loading indicator
+            const loadingEl = document.getElementById('portfolioLoadingIndicator');
+            if (loadingEl && holdings.length > 0) loadingEl.style.display = 'block';
+
+            // Show/hide crash context
+            const crashNote = document.getElementById('portfolioCrashNote');
+            if (crashNote) crashNote.style.display = asianMarketCrashActive ? 'block' : 'none';
 
             for (const h of holdings) {
                 const cached = priceCache[h.symbol];
@@ -5102,10 +5372,13 @@
                         sourceEl.textContent = '';
                     }
                 }
+                // Hide loading indicator after live fetch
+                if (loadingEl) loadingEl.style.display = 'none';
             } else if (sourceEl) {
                 sourceEl.textContent = '';
                 ptSavePriceCache(priceCache);
                 if (holdingsMutated) ptSaveHoldings(holdings);
+                if (loadingEl) loadingEl.style.display = 'none';
             }
         }
 

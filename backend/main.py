@@ -781,6 +781,36 @@ async def get_current_price(symbol: str):
         return cached
     raise HTTPException(status_code=404, detail=f"No cached data for {sym}")
 
+
+# ============================================================================
+# ASIAN MARKET STATUS (Crash Detection)
+# ============================================================================
+
+@app.get("/api/asian-market-status")
+async def get_asian_market_status():
+    """
+    Real-time Asian market status for crash detection.
+    Nikkei 225 and KOSPI open 4-5 hours before PSX.
+    When both crash at open, PSX typically follows.
+    Results cached for 5 minutes.
+    """
+    try:
+        from backend.external_features import fetch_asian_market_realtime
+        return fetch_asian_market_realtime()
+    except ImportError:
+        try:
+            from external_features import fetch_asian_market_realtime
+            return fetch_asian_market_realtime()
+        except ImportError:
+            return {
+                "error": "Asian market module not available",
+                "crash_warning": False,
+                "crash_severity": "none",
+                "nikkei": {"status": "unavailable"},
+                "kospi": {"status": "unavailable"},
+            }
+
+
 # ============================================================================
 # SCREENER & SENTIMENT
 # ============================================================================

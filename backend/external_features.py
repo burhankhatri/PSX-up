@@ -13,6 +13,7 @@ Data Sources:
 - USD/PKR: Yahoo Finance (PKR=X) - 5+ years available
 - KSE-100: PSX DPS API (dps.psx.com.pk)
 - Oil/Gold: Yahoo Finance (CL=F, GC=F)
+- Nikkei 225 / KOSPI: Yahoo Finance (^N225, ^KS11) - Asian leading indicators
 - KIBOR: Hardcoded (SBP updates manually)
 """
 
@@ -331,6 +332,197 @@ def fetch_commodities(start_date: str = None, end_date: str = None,
 
 
 # ============================================================================
+# ASIAN MARKETS (Leading Indicators for PSX)
+# ============================================================================
+# TSE opens 09:00 JST (04:00 PKT), closes 15:00 JST (10:00 PKT)
+# KRX opens 09:00 KST (05:00 PKT), closes 15:30 KST (11:30 PKT)
+# PSX opens 09:30 PKT — Asian markets give 4-5 hours of lead time
+
+ASIAN_MARKET_TICKERS = {
+    'nikkei': '^N225',
+    'kospi': '^KS11',
+}
+
+ASIAN_CACHE_FILE = CACHE_DIR / "asian_markets.json"
+
+
+def fetch_asian_markets(start_date: str = None, end_date: str = None,
+                        period: str = "5y") -> pd.DataFrame:
+    """
+    Fetch Nikkei 225 and KOSPI from Yahoo Finance.
+
+    These are leading indicators for PSX — Asian markets open 4-5 hours
+    before PSX. When both crash at open (e.g., March 9 2026), PSX follows.
+
+    Returns:
+        DataFrame with columns: date, nikkei_close, nikkei_change,
+        nikkei_open_gap, kospi_close, kospi_change, kospi_open_gap,
+        asian_avg_return, asian_risk_off_signal, etc.
+    """
+    if not YFINANCE_AVAILABLE:
+        print("⚠️ yfinance not available, returning empty DataFrame")
+        return pd.DataFrame()
+
+    try:
+        dl_kwargs = dict(progress=False)
+        if start_date and end_date:
+            dl_kwargs.update(start=start_date, end=end_date)
+        else:
+            dl_kwargs['period'] = period
+
+        nikkei = yf.download('^N225', **dl_kwargs)
+        kospi = yf.download('^KS11', **dl_kwargs)
+
+        # Handle multi-level columns
+        for df_raw in [nikkei, kospi]:
+            if isinstance(df_raw.columns, pd.MultiIndex):
+                df_raw.columns = df_raw.columns.get_level_values(0)
+
+        if nikkei.empty and kospi.empty:
+            print("⚠️ No Asian market data returned")
+            return pd.DataFrame()
+
+        # Use nikkei as base timeline, align kospi
+        base = nikkei if not nikkei.empty else kospi
+        result = pd.DataFrame({'date': base.index})
+
+        if not nikkei.empty:
+            result['nikkei_close'] = nikkei['Close'].values
+            result['nikkei_change'] = nikkei['Close'].pct_change().values
+            result['nikkei_trend'] = (nikkei['Close'] / nikkei['Close'].shift(20) - 1).values
+            # Open gap: how much market gapped at open vs previous close
+            result['nikkei_open_gap'] = ((nikkei['Open'] - nikkei['Close'].shift(1)) / nikkei['Close'].shift(1)).values
+            # Intraday momentum: did selling continue through the day?
+            result['nikkei_intraday_momentum'] = ((nikkei['Close'] - nikkei['Open']) / nikkei['Open']).values
+
+        if not kospi.empty:
+            kospi_aligned = kospi.reindex(base.index, method='ffill')
+            result['kospi_close'] = kospi_aligned['Close'].values
+            result['kospi_change'] = kospi_aligned['Close'].pct_change().values
+            result['kospi_trend'] = (kospi_aligned['Close'] / kospi_aligned['Close'].shift(20) - 1).values
+            result['kospi_open_gap'] = ((kospi_aligned['Open'] - kospi_aligned['Close'].shift(1)) / kospi_aligned['Close'].shift(1)).values
+            result['kospi_intraday_momentum'] = ((kospi_aligned['Close'] - kospi_aligned['Open']) / kospi_aligned['Open']).values
+
+        # Composite features
+        nk_change = result.get('nikkei_change', pd.Series(0.0, index=result.index))
+        ks_change = result.get('kospi_change', pd.Series(0.0, index=result.index))
+        result['asian_avg_return'] = (nk_change.fillna(0) + ks_change.fillna(0)) / 2
+
+        # Risk-off signal: 1.0 if both drop >2%, 0.5 if one drops >2%, 0.0 otherwise
+        nk_crash = nk_change.fillna(0) < -0.02
+        ks_crash = ks_change.fillna(0) < -0.02
+        result['asian_risk_off_signal'] = 0.0
+        result.loc[nk_crash | ks_crash, 'asian_risk_off_signal'] = 0.5
+        result.loc[nk_crash & ks_crash, 'asian_risk_off_signal'] = 1.0
+
+        result = result.reset_index(drop=True)
+        print(f"✅ Fetched {len(result)} Asian market data points (Nikkei + KOSPI)")
+        return result
+
+    except Exception as e:
+        print(f"❌ Error fetching Asian markets: {e}")
+        return pd.DataFrame()
+
+
+def fetch_asian_market_realtime() -> Dict:
+    """
+    Fetch real-time Asian market status for crash detection.
+    Uses intraday data to detect opening gaps before PSX opens.
+
+    Returns:
+        Dict with nikkei/kospi status, crash_warning, crash_severity, etc.
+    """
+    if not YFINANCE_AVAILABLE:
+        return {"error": "yfinance not available", "crash_warning": False, "crash_severity": "none"}
+
+    # Check cache first (5-minute TTL)
+    if ASIAN_CACHE_FILE.exists():
+        try:
+            with open(ASIAN_CACHE_FILE, 'r') as f:
+                cached = json.load(f)
+            cached_at = datetime.fromisoformat(cached.get('checked_at', '2000-01-01'))
+            if (datetime.now() - cached_at).total_seconds() < 300:
+                return cached
+        except Exception:
+            pass
+
+    result = {
+        "nikkei": {"current": None, "prev_close": None, "change_pct": None, "open_gap_pct": None, "status": "unknown"},
+        "kospi": {"current": None, "prev_close": None, "change_pct": None, "open_gap_pct": None, "status": "unknown"},
+        "asian_risk_off_signal": 0.0,
+        "crash_warning": False,
+        "crash_severity": "none",
+        "warning_message": "",
+        "checked_at": datetime.now().isoformat(),
+    }
+
+    for name, ticker in ASIAN_MARKET_TICKERS.items():
+        try:
+            # Fetch last 5 days to get previous close + today's data
+            data = yf.download(ticker, period="5d", progress=False)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+
+            if data.empty or len(data) < 2:
+                result[name]["status"] = "no_data"
+                continue
+
+            prev_close = float(data['Close'].iloc[-2])
+            current = float(data['Close'].iloc[-1])
+            today_open = float(data['Open'].iloc[-1])
+
+            change_pct = ((current - prev_close) / prev_close) * 100
+            open_gap_pct = ((today_open - prev_close) / prev_close) * 100
+
+            result[name] = {
+                "current": round(current, 2),
+                "prev_close": round(prev_close, 2),
+                "change_pct": round(change_pct, 2),
+                "open_gap_pct": round(open_gap_pct, 2),
+                "status": "open" if data.index[-1].date() == datetime.now().date() else "closed",
+            }
+        except Exception as e:
+            result[name]["status"] = f"error: {str(e)[:100]}"
+
+    # Calculate crash severity
+    nk_drop = abs(min(result["nikkei"].get("change_pct") or 0, 0))
+    ks_drop = abs(min(result["kospi"].get("change_pct") or 0, 0))
+
+    if nk_drop >= 2 and ks_drop >= 2:
+        result["crash_severity"] = "severe"
+        result["asian_risk_off_signal"] = 1.0
+        result["crash_warning"] = True
+        result["warning_message"] = f"Both Nikkei (-{nk_drop:.1f}%) & KOSPI (-{ks_drop:.1f}%) crashed. Regional sell-off risk elevated for PSX."
+    elif nk_drop >= 2 or ks_drop >= 2:
+        result["crash_severity"] = "moderate"
+        result["asian_risk_off_signal"] = 0.5
+        result["crash_warning"] = True
+        which = "Nikkei" if nk_drop >= 2 else "KOSPI"
+        drop = nk_drop if nk_drop >= 2 else ks_drop
+        result["warning_message"] = f"{which} dropped {drop:.1f}%. Regional sell-off risk for PSX."
+    elif nk_drop >= 1.5 or ks_drop >= 1.5:
+        result["crash_severity"] = "mild"
+        result["asian_risk_off_signal"] = 0.25
+        result["crash_warning"] = True
+        result["warning_message"] = "Asian markets under pressure. Monitor PSX carefully."
+    else:
+        result["crash_severity"] = "none"
+        result["asian_risk_off_signal"] = 0.0
+        result["crash_warning"] = False
+        result["warning_message"] = ""
+
+    # Cache result
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(ASIAN_CACHE_FILE, 'w') as f:
+            json.dump(result, f, indent=2, default=str)
+    except Exception:
+        pass
+
+    return result
+
+
+# ============================================================================
 # STOCK BETA CALCULATION
 # ============================================================================
 
@@ -562,8 +754,34 @@ def merge_external_features(stock_df: pd.DataFrame,
         
         print(f"   ✅ Added {len([c for c in df.columns if 'oil' in c.lower() or 'gold' in c.lower()])} commodity features")
     
-    # 4. KIBOR
-    print("\n4. Adding energy-shock features...")
+    # 4. Asian Markets (Leading Indicators)
+    print("\n4. Fetching Asian Markets (Nikkei, KOSPI)...")
+    asian = fetch_asian_markets(start_date=start_date, end_date=end_date)
+    if not asian.empty:
+        asian['date'] = pd.to_datetime(asian['date'])
+        df = pd.merge_asof(
+            df.sort_values('Date'),
+            asian.sort_values('date'),
+            left_on='Date',
+            right_on='date',
+            direction='backward'
+        )
+        df = df.drop(columns=['date'], errors='ignore')
+
+        # Asian market correlation with stock
+        if 'asian_avg_return' in df.columns and 'Close' in df.columns:
+            df['asian_correlation'] = calculate_correlation(
+                df['Close'].pct_change().fillna(0).values,
+                df['asian_avg_return'].fillna(0).values
+            )
+
+        asian_cols = [c for c in df.columns if 'nikkei' in c.lower() or 'kospi' in c.lower() or 'asian' in c.lower()]
+        print(f"   ✅ Added {len(asian_cols)} Asian market features")
+    else:
+        print("   ⚠️ No Asian market data available")
+
+    # 5. Energy-shock features
+    print("\n5. Adding energy-shock features...")
     df = _ensure_energy_shock_columns(df)
     if ENERGY_SHOCK_FEATURES_AVAILABLE:
         try:
@@ -614,14 +832,14 @@ def merge_external_features(stock_df: pd.DataFrame,
             df['energy_shock_regime'], errors='coerce'
         ).fillna(0.0)
 
-    # 5. KIBOR
-    print("\n5. Adding KIBOR features...")
+    # 6. KIBOR
+    print("\n6. Adding KIBOR features...")
     kibor_df = get_kibor_features(len(df))
     for col in kibor_df.columns:
         df[col] = kibor_df[col].values
     print(f"   ✅ Added {len(kibor_df.columns)} KIBOR features")
 
-    # 6. TradingView Technical Indicators (uses scraper cache TTL; no forced cache eviction)
+    # 7. TradingView Technical Indicators (uses scraper cache TTL; no forced cache eviction)
     if TRADINGVIEW_AVAILABLE and symbol:
         print(f"\n6. Fetching TradingView indicators for {symbol}...")
 
@@ -766,7 +984,7 @@ def merge_external_features(stock_df: pd.DataFrame,
         else:
             print(f"   ⚠️ TradingView unavailable, using local indicators")
     
-    # 6. USD/PKR correlation with stock
+    # 8. USD/PKR correlation with stock
     if 'usdpkr_change' in df.columns and 'Close' in df.columns:
         df['usdpkr_correlation'] = calculate_correlation(
             df['Close'].pct_change().values,
@@ -812,8 +1030,22 @@ if __name__ == "__main__":
         print(f"   Oil: ${commodities['oil_close'].iloc[-1]:.2f}")
         print(f"   Gold: ${commodities['gold_close'].iloc[-1]:.2f}")
     
+    # Test Asian Markets
+    print("\n4. Testing Asian markets fetch...")
+    asian = fetch_asian_markets(period="1mo")
+    if not asian.empty:
+        print(f"   Nikkei: {asian['nikkei_close'].iloc[-1]:,.2f}")
+        if 'kospi_close' in asian.columns:
+            print(f"   KOSPI: {asian['kospi_close'].iloc[-1]:,.2f}")
+        print(f"   Risk-off signal: {asian['asian_risk_off_signal'].iloc[-1]}")
+
+    # Test real-time crash detection
+    print("\n5. Testing Asian market real-time status...")
+    rt = fetch_asian_market_realtime()
+    print(f"   Crash warning: {rt.get('crash_warning')}, Severity: {rt.get('crash_severity')}")
+
     # Test merge with dummy stock data
-    print("\n4. Testing merge with stock data...")
+    print("\n6. Testing merge with stock data...")
     dummy_stock = pd.DataFrame({
         'Date': pd.date_range('2024-01-01', periods=100, freq='D'),
         'Close': np.random.randn(100).cumsum() + 100,

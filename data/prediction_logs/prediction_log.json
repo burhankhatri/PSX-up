@@ -967,5 +967,43 @@
     "actual_direction": null,
     "direction_correct": null,
     "evaluated": false
+  },
+  {
+    "id": "OGDC_20260309_035918",
+    "symbol": "OGDC",
+    "prediction_date": "2026-03-09T03:59:18.712583",
+    "evaluation_date": "2026-03-16",
+    "horizon_days": 7,
+    "current_price": 275.79,
+    "predicted_price": 291.68,
+    "predicted_change_pct": 5.76,
+    "predicted_direction": "BEARISH",
+    "confidence": 0.85,
+    "williams_signal": "UP",
+    "sector": null,
+    "actual_price": null,
+    "actual_change_pct": null,
+    "actual_direction": null,
+    "direction_correct": null,
+    "evaluated": false
+  },
+  {
+    "id": "OGDC_20260309_041548",
+    "symbol": "OGDC",
+    "prediction_date": "2026-03-09T04:15:48.021338",
+    "evaluation_date": "2026-03-16",
+    "horizon_days": 7,
+    "current_price": 275.79,
+    "predicted_price": 291.7,
+    "predicted_change_pct": 5.77,
+    "predicted_direction": "BEARISH",
+    "confidence": 0.85,
+    "williams_signal": "UP",
+    "sector": null,
+    "actual_price": null,
+    "actual_change_pct": null,
+    "actual_direction": null,
+    "direction_correct": null,
+    "evaluated": false
   }
 ]
