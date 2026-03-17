@@ -32,10 +32,96 @@ class PredictionLogger:
         if self.log_file.exists():
             try:
                 with open(self.log_file, 'r') as f:
-                    return json.load(f)
+                    raw_entries = json.load(f)
+                return [self._normalize_entry(entry) for entry in raw_entries if isinstance(entry, dict)]
             except Exception as e:
                 print(f"⚠️ Could not load prediction log: {e}")
         return []
+
+    def _normalize_entry(self, entry: Dict) -> Dict:
+        """Backfill additive fields so older logs remain readable."""
+        normalized = dict(entry or {})
+        symbol = str(normalized.get('symbol', '') or '').upper()
+        normalized['symbol'] = symbol
+
+        prediction_date_raw = normalized.get('prediction_date')
+        try:
+            prediction_dt = datetime.fromisoformat(str(prediction_date_raw))
+        except Exception:
+            prediction_dt = datetime.now()
+        normalized['prediction_date'] = prediction_dt.isoformat()
+
+        horizon_days = int(normalized.get('horizon_days', 0) or 0)
+        if horizon_days <= 0:
+            target_horizon_raw = str(normalized.get('target_horizon', '') or '').strip().lower()
+            if target_horizon_raw.startswith('day_'):
+                try:
+                    horizon_days = int(target_horizon_raw.split('_', 1)[1])
+                except Exception:
+                    horizon_days = 0
+        normalized['horizon_days'] = horizon_days
+
+        variant = str(normalized.get('variant', 'baseline') or 'baseline').strip().lower()
+        if variant not in {'baseline', 'geo'}:
+            variant = 'baseline'
+        normalized['variant'] = variant
+
+        target_horizon = str(normalized.get('target_horizon', '') or '').strip().lower()
+        if not target_horizon:
+            target_horizon = f"day_{horizon_days}" if horizon_days > 0 else 'day_unknown'
+        normalized['target_horizon'] = target_horizon
+
+        if not normalized.get('id'):
+            normalized['id'] = (
+                f"{symbol}_{prediction_dt.strftime('%Y%m%d_%H%M%S_%f')}"
+                f"_{variant}_{target_horizon}"
+            )
+        normalized['analysis_id'] = str(normalized.get('analysis_id') or normalized['id'])
+
+        geo_adjustment_pct = normalized.get('geo_adjustment_pct', 0.0)
+        try:
+            normalized['geo_adjustment_pct'] = round(float(geo_adjustment_pct or 0.0), 4)
+        except Exception:
+            normalized['geo_adjustment_pct'] = 0.0
+
+        evaluation_date = str(normalized.get('evaluation_date', '') or '').strip()
+        if not evaluation_date and horizon_days > 0:
+            evaluation_date = (prediction_dt + timedelta(days=horizon_days)).strftime('%Y-%m-%d')
+        normalized['evaluation_date'] = evaluation_date
+
+        try:
+            normalized['current_price'] = round(float(normalized.get('current_price', 0) or 0), 2)
+        except Exception:
+            normalized['current_price'] = 0.0
+        try:
+            normalized['predicted_price'] = round(float(normalized.get('predicted_price', 0) or 0), 2)
+        except Exception:
+            normalized['predicted_price'] = 0.0
+        if normalized.get('predicted_change_pct') is None:
+            curr = float(normalized.get('current_price', 0) or 0)
+            pred = float(normalized.get('predicted_price', 0) or 0)
+            normalized['predicted_change_pct'] = round(((pred - curr) / curr) * 100, 2) if curr > 0 else 0.0
+
+        for key in ('confidence', 'actual_price', 'actual_change_pct', 'error_pct', 'abs_error_pct'):
+            value = normalized.get(key)
+            if value is None:
+                normalized[key] = None
+                continue
+            try:
+                digits = 2 if key in {'confidence', 'actual_price', 'actual_change_pct'} else 4
+                normalized[key] = round(float(value), digits)
+            except Exception:
+                normalized[key] = None
+
+        normalized.setdefault('predicted_direction', 'NEUTRAL')
+        normalized.setdefault('williams_signal', None)
+        normalized.setdefault('sector', None)
+        normalized.setdefault('actual_direction', None)
+        normalized.setdefault('direction_correct', None)
+        normalized.setdefault('actual_date_used', None)
+        normalized.setdefault('evaluated_at', None)
+        normalized['evaluated'] = bool(normalized.get('evaluated', False))
+        return normalized
 
     def _save_log(self):
         """Save prediction log to file."""
@@ -54,7 +140,14 @@ class PredictionLogger:
         confidence: float,
         horizon_days: int = 1,
         williams_signal: Optional[str] = None,
-        sector: Optional[str] = None
+        sector: Optional[str] = None,
+        *,
+        evaluation_date: Optional[str] = None,
+        prediction_date: Optional[datetime] = None,
+        analysis_id: Optional[str] = None,
+        variant: str = "baseline",
+        target_horizon: Optional[str] = None,
+        geo_adjustment_pct: float = 0.0,
     ) -> Dict:
         """
         Log a new prediction.
@@ -72,18 +165,35 @@ class PredictionLogger:
         Returns:
             The logged prediction entry
         """
-        prediction_date = datetime.now()
-        evaluation_date = prediction_date + timedelta(days=horizon_days)
+        prediction_dt = prediction_date or datetime.now()
+        evaluation_date_str = evaluation_date
+        if not evaluation_date_str:
+            evaluation_date_str = (prediction_dt + timedelta(days=horizon_days)).strftime('%Y-%m-%d')
+
+        variant = str(variant or 'baseline').strip().lower()
+        if variant not in {'baseline', 'geo'}:
+            variant = 'baseline'
+
+        target_horizon = str(target_horizon or f"day_{horizon_days}").strip().lower()
+        entry_id = (
+            f"{symbol}_{prediction_dt.strftime('%Y%m%d_%H%M%S_%f')}"
+            f"_{variant}_{target_horizon}"
+        )
 
         entry = {
-            'id': f"{symbol}_{prediction_date.strftime('%Y%m%d_%H%M%S')}",
+            'id': entry_id,
             'symbol': symbol,
-            'prediction_date': prediction_date.isoformat(),
-            'evaluation_date': evaluation_date.strftime('%Y-%m-%d'),
+            'prediction_date': prediction_dt.isoformat(),
+            'evaluation_date': evaluation_date_str,
             'horizon_days': horizon_days,
+            'analysis_id': analysis_id or entry_id,
+            'variant': variant,
+            'target_horizon': target_horizon,
+            'geo_adjustment_pct': round(float(geo_adjustment_pct or 0.0), 4),
             'current_price': round(current_price, 2),
             'predicted_price': round(predicted_price, 2),
-            'predicted_change_pct': round((predicted_price - current_price) / current_price * 100, 2),
+            'predicted_change_pct': round(((predicted_price - current_price) / current_price) * 100, 2)
+            if current_price else 0.0,
             'predicted_direction': predicted_direction,
             'confidence': round(confidence, 2),
             'williams_signal': williams_signal,
@@ -93,16 +203,63 @@ class PredictionLogger:
             'actual_change_pct': None,
             'actual_direction': None,
             'direction_correct': None,
+            'actual_date_used': None,
+            'error_pct': None,
+            'abs_error_pct': None,
+            'evaluated_at': None,
             'evaluated': False
         }
 
-        self.predictions.append(entry)
+        self.predictions.append(self._normalize_entry(entry))
         self._save_log()
 
-        print(f"📝 Logged prediction: {symbol} {predicted_direction} ({confidence:.0%} conf)")
-        return entry
+        print(
+            f"📝 Logged prediction: {symbol} {variant}/{target_horizon} "
+            f"{predicted_direction} ({confidence:.0%} conf)"
+        )
+        return self.predictions[-1]
 
-    def update_actual(self, symbol: str, evaluation_date: str, actual_price: float) -> Optional[Dict]:
+    def _apply_actual_to_entry(
+        self,
+        pred: Dict,
+        actual_price: float,
+        actual_date_used: Optional[str] = None,
+    ) -> Dict:
+        current_price = float(pred.get('current_price', 0) or 0)
+        predicted_price = float(pred.get('predicted_price', 0) or 0)
+        actual_change = ((actual_price - current_price) / current_price * 100) if current_price > 0 else 0.0
+        error_pct = ((predicted_price - actual_price) / actual_price * 100) if actual_price > 0 else None
+
+        pred['actual_price'] = round(actual_price, 2)
+        pred['actual_change_pct'] = round(actual_change, 2)
+        if abs(actual_change) < 1e-9:
+            pred['actual_direction'] = 'NEUTRAL'
+        else:
+            pred['actual_direction'] = 'BULLISH' if actual_change > 0 else 'BEARISH'
+
+        pred_dir = pred.get('predicted_direction', 'NEUTRAL')
+        actual_dir = pred['actual_direction']
+        pred['direction_correct'] = (
+            (pred_dir == 'BULLISH' and actual_dir == 'BULLISH') or
+            (pred_dir == 'BEARISH' and actual_dir == 'BEARISH') or
+            (pred_dir == 'NEUTRAL')
+        )
+        pred['actual_date_used'] = actual_date_used
+        pred['error_pct'] = round(error_pct, 4) if error_pct is not None else None
+        pred['abs_error_pct'] = round(abs(error_pct), 4) if error_pct is not None else None
+        pred['evaluated_at'] = datetime.now().isoformat()
+        pred['evaluated'] = True
+        return pred
+
+    def update_actual(
+        self,
+        symbol: str,
+        evaluation_date: str,
+        actual_price: float,
+        *,
+        prediction_id: Optional[str] = None,
+        actual_date_used: Optional[str] = None,
+    ) -> Optional[Dict]:
         """
         Update a prediction with actual outcome.
 
@@ -115,35 +272,72 @@ class PredictionLogger:
             Updated prediction entry or None if not found
         """
         for pred in self.predictions:
-            if (pred['symbol'] == symbol and
-                pred['evaluation_date'] == evaluation_date and
-                not pred['evaluated']):
+            id_match = prediction_id and pred.get('id') == prediction_id
+            legacy_match = (
+                pred.get('symbol') == symbol and
+                pred.get('evaluation_date') == evaluation_date and
+                not pred.get('evaluated')
+            )
+            if not id_match and not legacy_match:
+                continue
 
-                current_price = pred['current_price']
-                actual_change = (actual_price - current_price) / current_price * 100
+            self._apply_actual_to_entry(pred, actual_price, actual_date_used=actual_date_used)
+            self._save_log()
 
-                pred['actual_price'] = round(actual_price, 2)
-                pred['actual_change_pct'] = round(actual_change, 2)
-                pred['actual_direction'] = 'BULLISH' if actual_change > 0 else 'BEARISH'
+            status = "✅ CORRECT" if pred['direction_correct'] else "❌ WRONG"
+            print(
+                f"📊 Evaluated {symbol} {pred.get('variant', 'baseline')}/{pred.get('target_horizon', '')}: "
+                f"Predicted {pred.get('predicted_direction')}, Actual {pred.get('actual_direction')} → {status}"
+            )
 
-                # Check if direction was correct
-                pred_dir = pred['predicted_direction']
-                actual_dir = pred['actual_direction']
-                pred['direction_correct'] = (
-                    (pred_dir == 'BULLISH' and actual_dir == 'BULLISH') or
-                    (pred_dir == 'BEARISH' and actual_dir == 'BEARISH') or
-                    (pred_dir == 'NEUTRAL')  # Neutral is always "correct" (conservative)
-                )
-
-                pred['evaluated'] = True
-                self._save_log()
-
-                status = "✅ CORRECT" if pred['direction_correct'] else "❌ WRONG"
-                print(f"📊 Evaluated {symbol}: Predicted {pred_dir}, Actual {actual_dir} → {status}")
-
-                return pred
+            return pred
 
         return None
+
+    def backfill_actuals(self, symbol: Optional[str] = None, limit: Optional[int] = None) -> List[Dict]:
+        """Resolve actual closes for overdue predictions using local history or PSX fallback."""
+        try:
+            from backend.prediction_tuning import _fetch_actual_on_or_after
+        except Exception as e:
+            print(f"⚠️ Prediction backfill unavailable: {e}")
+            return []
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        cache = {}
+        updated = []
+
+        pending = [
+            p for p in self.predictions
+            if not p.get('evaluated') and p.get('evaluation_date') and p['evaluation_date'] <= today
+            and (symbol is None or p.get('symbol') == symbol)
+        ]
+        pending.sort(key=lambda p: (p.get('evaluation_date', ''), p.get('prediction_date', '')))
+
+        for pred in pending:
+            if limit is not None and len(updated) >= limit:
+                break
+            try:
+                actual_price, actual_date = _fetch_actual_on_or_after(
+                    pred['symbol'],
+                    pred['evaluation_date'],
+                    cache,
+                )
+            except Exception:
+                continue
+            if actual_price is None:
+                continue
+
+            updated_pred = self.update_actual(
+                pred['symbol'],
+                pred['evaluation_date'],
+                actual_price,
+                prediction_id=pred.get('id'),
+                actual_date_used=actual_date,
+            )
+            if updated_pred:
+                updated.append(updated_pred)
+
+        return updated
 
     def get_accuracy_stats(self, symbol: Optional[str] = None, days: int = 30) -> Dict:
         """
@@ -229,10 +423,12 @@ class PredictionLogger:
             filepath = LOG_DIR / f"predictions_export_{datetime.now().strftime('%Y%m%d')}.csv"
 
         fieldnames = [
-            'id', 'symbol', 'prediction_date', 'evaluation_date', 'horizon_days',
+            'id', 'analysis_id', 'symbol', 'prediction_date', 'evaluation_date', 'horizon_days',
+            'variant', 'target_horizon', 'geo_adjustment_pct',
             'current_price', 'predicted_price', 'predicted_change_pct', 'predicted_direction',
             'confidence', 'williams_signal', 'sector',
-            'actual_price', 'actual_change_pct', 'actual_direction', 'direction_correct', 'evaluated'
+            'actual_price', 'actual_change_pct', 'actual_direction', 'direction_correct',
+            'actual_date_used', 'error_pct', 'abs_error_pct', 'evaluated_at', 'evaluated'
         ]
 
         with open(filepath, 'w', newline='') as f:

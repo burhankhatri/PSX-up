@@ -35,12 +35,14 @@ try:
         check_data as check_stock_data,
         analyze_stock as start_stock_analysis,
         websocket_progress as stock_websocket,
+        build_forecast_postmortem,
         StockRequest,
         progress_data
     )
     ANALYZER_AVAILABLE = True
 except ImportError as e:
     print(f"WARNING: Stock Analyzer import error: {e}")
+    build_forecast_postmortem = None
     ANALYZER_AVAILABLE = False
 
 # ============================================================================
@@ -1163,6 +1165,7 @@ async def get_prediction_history():
         try:
             from backend.prediction_logger import get_prediction_logger
             logger = get_prediction_logger()
+            logger.backfill_actuals(limit=200)
             prediction_log = logger.get_recent_predictions(limit=50)
         except Exception:
             pass
@@ -1236,10 +1239,17 @@ async def get_prediction_file(filename: str):
 
     # Load monthly_forecast and forecast_summary from complete analysis if available
     complete_file = BASE_DIR / "data" / f"{symbol}_complete_analysis.json"
+    complete_data = {}
     monthly_forecast = []
     forecast_summary = {}
     daily_predictions_without_geo = daily_preds
     daily_predictions_with_geo = []
+    direction_meta = {}
+    near_term_direction = 'NEUTRAL'
+    day7_direction = 'NEUTRAL'
+    path_shape = 'volatile_flat'
+    forecast_postmortem = None
+    analysis_id = data.get('analysis_id')
     geo_comparison = {
         "enabled": False,
         "applied": False,
@@ -1257,11 +1267,35 @@ async def get_prediction_file(filename: str):
             daily_predictions_without_geo = complete_data.get('daily_predictions_without_geo', daily_preds)
             daily_predictions_with_geo = complete_data.get('daily_predictions_with_geo', [])
             geo_comparison = complete_data.get('geo_comparison', geo_comparison)
+            direction_meta = complete_data.get('direction_meta', {}) or {}
+            near_term_direction = complete_data.get('near_term_direction', direction_meta.get('near_term_direction', 'NEUTRAL'))
+            day7_direction = complete_data.get('day7_direction', direction_meta.get('day7_direction', 'NEUTRAL'))
+            path_shape = complete_data.get('path_shape', direction_meta.get('path_shape', 'volatile_flat'))
+            forecast_postmortem = complete_data.get('forecast_postmortem')
+            analysis_id = complete_data.get('analysis_id', analysis_id)
         except Exception:
             pass
 
+    if not forecast_postmortem and build_forecast_postmortem is not None:
+        try:
+            forecast_postmortem = build_forecast_postmortem(
+                symbol=symbol,
+                current_price=float(current_price or 0),
+                baseline_predictions=daily_predictions_without_geo,
+                geo_predictions=(
+                    daily_predictions_with_geo
+                    if geo_comparison.get("enabled") and daily_predictions_with_geo
+                    else (daily_predictions_without_geo if geo_comparison.get("enabled") else [])
+                ),
+                geo_comparison=geo_comparison,
+                prediction_generated_at=(complete_data.get('generated_at') if complete_file.exists() else data.get('generated_at')),
+            )
+        except Exception:
+            forecast_postmortem = None
+
     # Return complete structure matching WebSocket response
     return {
+        "analysis_id": analysis_id,
         "symbol": symbol,
         "current_price": current_price,
         "model": data.get('model', 'SOTA Ensemble'),
@@ -1270,6 +1304,11 @@ async def get_prediction_file(filename: str):
         "daily_predictions_without_geo": daily_predictions_without_geo,
         "daily_predictions_with_geo": daily_predictions_with_geo,
         "geo_comparison": geo_comparison,
+        "direction_meta": direction_meta,
+        "near_term_direction": near_term_direction,
+        "day7_direction": day7_direction,
+        "path_shape": path_shape,
+        "forecast_postmortem": forecast_postmortem,
         "historical_data": historical_data,
         "sentiment": sentiment,
         "prediction_reasoning": data.get('prediction_reasoning'),  # Include reasoning if available

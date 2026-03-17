@@ -84,6 +84,13 @@ ENERGY_SHOCK_FEATURE_COLUMNS = [
     'kse_energy_shock_interaction',
 ]
 
+OIL_SECTOR_SYMBOLS = frozenset({'OGDC', 'PPL', 'PSO', 'POL', 'MARI', 'ATRL'})
+
+
+def is_oil_sector_symbol(symbol: Optional[str]) -> bool:
+    """Return True when the ticker should treat crude/oil as sector-specific context."""
+    return bool(symbol and symbol.upper() in OIL_SECTOR_SYMBOLS)
+
 
 def _load_energy_news_items(symbol: Optional[str]) -> List[Dict]:
     symbol_upper = (symbol or '').upper()
@@ -346,6 +353,25 @@ ASIAN_MARKET_TICKERS = {
 ASIAN_CACHE_FILE = CACHE_DIR / "asian_markets.json"
 
 
+def _asian_realtime_payload_usable(payload: Optional[Dict]) -> bool:
+    """Treat cached realtime payloads as valid only when at least one market has numeric data."""
+    if not isinstance(payload, dict):
+        return False
+
+    for market in ASIAN_MARKET_TICKERS:
+        market_data = payload.get(market, {})
+        if not isinstance(market_data, dict):
+            continue
+        if market_data.get('current') is None or market_data.get('prev_close') is None:
+            continue
+        if market_data.get('change_pct') is None or market_data.get('open_gap_pct') is None:
+            continue
+        status = str(market_data.get('status', '')).lower()
+        if status in {'open', 'closed'}:
+            return True
+    return False
+
+
 def fetch_asian_markets(start_date: str = None, end_date: str = None,
                         period: str = "5y") -> pd.DataFrame:
     """
@@ -441,7 +467,10 @@ def fetch_asian_market_realtime() -> Dict:
             with open(ASIAN_CACHE_FILE, 'r') as f:
                 cached = json.load(f)
             cached_at = datetime.fromisoformat(cached.get('checked_at', '2000-01-01'))
-            if (datetime.now() - cached_at).total_seconds() < 300:
+            if (
+                (datetime.now() - cached_at).total_seconds() < 300
+                and _asian_realtime_payload_usable(cached)
+            ):
                 return cached
         except Exception:
             pass
@@ -512,12 +541,13 @@ def fetch_asian_market_realtime() -> Dict:
         result["warning_message"] = ""
 
     # Cache result
-    try:
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        with open(ASIAN_CACHE_FILE, 'w') as f:
-            json.dump(result, f, indent=2, default=str)
-    except Exception:
-        pass
+    if _asian_realtime_payload_usable(result):
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            with open(ASIAN_CACHE_FILE, 'w') as f:
+                json.dump(result, f, indent=2, default=str)
+        except Exception:
+            pass
 
     return result
 
@@ -621,9 +651,11 @@ def get_kibor_features(length: int) -> pd.DataFrame:
 # MERGE EXTERNAL FEATURES WITH STOCK DATA
 # ============================================================================
 
-def merge_external_features(stock_df: pd.DataFrame, 
+def merge_external_features(stock_df: pd.DataFrame,
                             symbol: str = None,
-                            cache: bool = True) -> pd.DataFrame:
+                            cache: bool = True,
+                            include_asian_features: bool = True,
+                            include_oil_features: bool = True) -> pd.DataFrame:
     """
     Merge all external features with stock DataFrame.
     
@@ -633,6 +665,8 @@ def merge_external_features(stock_df: pd.DataFrame,
         stock_df: DataFrame with stock data (must have 'Date' column)
         symbol: Stock symbol (for sector-specific features)
         cache: Whether to cache external data
+        include_asian_features: Whether to merge Nikkei/KOSPI/asian_* features
+        include_oil_features: Whether to merge crude/oil features for oil-sector symbols
     
     Returns:
         DataFrame with both stock and external features
@@ -732,7 +766,12 @@ def merge_external_features(stock_df: pd.DataFrame,
     print("\n3. Fetching Commodities...")
     commodities = fetch_commodities(start_date=start_date, end_date=end_date)
     if not commodities.empty:
+        include_oil_market_features = include_oil_features or not is_oil_sector_symbol(symbol)
         commodities['date'] = pd.to_datetime(commodities['date'])
+        if not include_oil_market_features:
+            oil_cols = [c for c in commodities.columns if c != 'date' and 'oil' in c.lower()]
+            commodities = commodities.drop(columns=oil_cols, errors='ignore')
+            print(f"   ℹ️ Geo mode disabled for oil-sector symbol {symbol}; excluding crude/oil model features")
         df = pd.merge_asof(
             df.sort_values('Date'),
             commodities.sort_values('date'),
@@ -743,8 +782,7 @@ def merge_external_features(stock_df: pd.DataFrame,
         df = df.drop(columns=['date'], errors='ignore')
         
         # Sector-specific: Energy stocks correlate with oil
-        energy_symbols = ['OGDC', 'PPL', 'PSO', 'POL', 'MARI', 'ATRL']
-        if symbol and symbol.upper() in energy_symbols:
+        if include_oil_market_features and is_oil_sector_symbol(symbol):
             if 'oil_change' in df.columns and 'Close' in df.columns:
                 df['oil_correlation'] = calculate_correlation(
                     df['Close'].pct_change().values,
@@ -755,30 +793,33 @@ def merge_external_features(stock_df: pd.DataFrame,
         print(f"   ✅ Added {len([c for c in df.columns if 'oil' in c.lower() or 'gold' in c.lower()])} commodity features")
     
     # 4. Asian Markets (Leading Indicators)
-    print("\n4. Fetching Asian Markets (Nikkei, KOSPI)...")
-    asian = fetch_asian_markets(start_date=start_date, end_date=end_date)
-    if not asian.empty:
-        asian['date'] = pd.to_datetime(asian['date'])
-        df = pd.merge_asof(
-            df.sort_values('Date'),
-            asian.sort_values('date'),
-            left_on='Date',
-            right_on='date',
-            direction='backward'
-        )
-        df = df.drop(columns=['date'], errors='ignore')
-
-        # Asian market correlation with stock
-        if 'asian_avg_return' in df.columns and 'Close' in df.columns:
-            df['asian_correlation'] = calculate_correlation(
-                df['Close'].pct_change().fillna(0).values,
-                df['asian_avg_return'].fillna(0).values
+    if include_asian_features:
+        print("\n4. Fetching Asian Markets (Nikkei, KOSPI)...")
+        asian = fetch_asian_markets(start_date=start_date, end_date=end_date)
+        if not asian.empty:
+            asian['date'] = pd.to_datetime(asian['date'])
+            df = pd.merge_asof(
+                df.sort_values('Date'),
+                asian.sort_values('date'),
+                left_on='Date',
+                right_on='date',
+                direction='backward'
             )
+            df = df.drop(columns=['date'], errors='ignore')
 
-        asian_cols = [c for c in df.columns if 'nikkei' in c.lower() or 'kospi' in c.lower() or 'asian' in c.lower()]
-        print(f"   ✅ Added {len(asian_cols)} Asian market features")
+            # Asian market correlation with stock
+            if 'asian_avg_return' in df.columns and 'Close' in df.columns:
+                df['asian_correlation'] = calculate_correlation(
+                    df['Close'].pct_change().fillna(0).values,
+                    df['asian_avg_return'].fillna(0).values
+                )
+
+            asian_cols = [c for c in df.columns if 'nikkei' in c.lower() or 'kospi' in c.lower() or 'asian' in c.lower()]
+            print(f"   ✅ Added {len(asian_cols)} Asian market features")
+        else:
+            print("   ⚠️ No Asian market data available")
     else:
-        print("   ⚠️ No Asian market data available")
+        print("\n4. Skipping Asian Markets (Geo mode disabled)...")
 
     # 5. Energy-shock features
     print("\n5. Adding energy-shock features...")

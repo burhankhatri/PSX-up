@@ -1,21 +1,21 @@
 {
   "nikkei": {
-    "current": 54542.19,
-    "prev_close": 55025.37,
-    "change_pct": -0.88,
-    "open_gap_pct": -1.16,
+    "current": 53700.39,
+    "prev_close": 53751.15,
+    "change_pct": -0.09,
+    "open_gap_pct": 1.0,
     "status": "open"
   },
   "kospi": {
-    "current": 5591.13,
-    "prev_close": 5609.95,
-    "change_pct": -0.34,
-    "open_gap_pct": -0.75,
+    "current": 5640.48,
+    "prev_close": 5549.85,
+    "change_pct": 1.63,
+    "open_gap_pct": 2.92,
     "status": "open"
   },
   "asian_risk_off_signal": 0.0,
   "crash_warning": false,
   "crash_severity": "none",
   "warning_message": "",
-  "checked_at": "2026-03-12T06:39:24.101223"
+  "checked_at": "2026-03-17T15:09:07.208348"
 }

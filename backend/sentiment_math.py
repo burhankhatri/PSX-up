@@ -300,7 +300,17 @@ def _calculate_adjustments(sentiment_analysis: Dict, horizons: List[int], unit: 
             45
         )
         total_raw_adjustment = (event_adjustment + sentiment_decay) * base_weight
-        capped_adjustment = sigmoid_cap(total_raw_adjustment, max_val=0.15)
+        # A8: tighter sentiment caps for short-horizon daily predictions
+        if unit == 'day':
+            if point <= 3:
+                _max_cap = 0.03   # Day 1-3: max 3%
+            elif point <= 7:
+                _max_cap = 0.05   # Day 4-7: max 5%
+            else:
+                _max_cap = 0.08   # Day 8+: max 8%
+        else:
+            _max_cap = 0.15       # Monthly: unchanged
+        capped_adjustment = sigmoid_cap(total_raw_adjustment, max_val=_max_cap)
 
         row = {
             'days_from_now': days_from_now,

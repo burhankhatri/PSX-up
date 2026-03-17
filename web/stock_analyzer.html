@@ -1912,6 +1912,7 @@
                         <p id="predictionExplanation"
                             style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 15px;">
                         </p>
+                        <div id="directionPathSummary" style="display:none; margin-bottom: 16px;"></div>
 
                         <div id="bullishSignals" style="margin-bottom: 12px;">
                             <div style="font-size: 0.75rem; font-weight: 700; color: #10b981; margin-bottom: 8px;">
@@ -1935,6 +1936,11 @@
                             <div class="geo-overlay-title">GEOPOLITICAL OVERLAY</div>
                             <div id="geoOverlayContent"></div>
                         </div>
+                    </div>
+
+                    <div class="sentiment-card" id="forecastPostmortemCard" style="margin-top: 20px; display: none;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 14px;">Forecast Postmortem</h3>
+                        <div id="forecastPostmortemContent"></div>
                     </div>
                 </div>
                 <div id="insightsPanel"></div>
@@ -2559,6 +2565,123 @@
             } catch (e) { return dateStr || '--'; }
         }
 
+        function humanizeSlug(value) {
+            if (!value) return '--';
+            return String(value)
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, ch => ch.toUpperCase());
+        }
+
+        function directionVisual(direction) {
+            const normalized = String(direction || 'NEUTRAL').toUpperCase();
+            if (normalized === 'BULLISH') {
+                return { text: 'BULLISH', color: '#10b981', bg: 'rgba(16, 185, 129, 0.14)' };
+            }
+            if (normalized === 'BEARISH') {
+                return { text: 'BEARISH', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.14)' };
+            }
+            return { text: 'NEUTRAL', color: '#9ca3af', bg: 'rgba(156, 163, 175, 0.14)' };
+        }
+
+        function renderDirectionPathSummary(viewRes) {
+            const el = document.getElementById('directionPathSummary');
+            if (!el) return;
+
+            const meta = (viewRes && typeof viewRes.direction_meta === 'object' && viewRes.direction_meta) ? viewRes.direction_meta : {};
+            const near = viewRes?.near_term_direction || meta.near_term_direction || 'NEUTRAL';
+            const day7 = viewRes?.day7_direction || meta.day7_direction || meta.display_direction || 'NEUTRAL';
+            const path = viewRes?.path_shape || meta.path_shape || 'volatile_flat';
+            const nearVisual = directionVisual(near);
+            const day7Visual = directionVisual(day7);
+            const mismatch = near !== day7;
+            const pathLabel = humanizeSlug(path);
+
+            el.style.display = 'block';
+            el.innerHTML = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+                    <div style="padding:12px; border:1px solid var(--border); border-radius:12px;">
+                        <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">NEAR TERM (D1-D7)</div>
+                        <div style="display:inline-flex; padding:6px 10px; border-radius:999px; font-size:0.78rem; font-weight:700; color:${nearVisual.color}; background:${nearVisual.bg};">${nearVisual.text}</div>
+                    </div>
+                    <div style="padding:12px; border:1px solid var(--border); border-radius:12px;">
+                        <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">DAY 7</div>
+                        <div style="display:inline-flex; padding:6px 10px; border-radius:999px; font-size:0.78rem; font-weight:700; color:${day7Visual.color}; background:${day7Visual.bg};">${day7Visual.text}</div>
+                    </div>
+                    <div style="padding:12px; border:1px solid var(--border); border-radius:12px;">
+                        <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">PATH SHAPE</div>
+                        <div style="font-size:0.84rem; font-weight:700; color:var(--text-main);">${pathLabel}</div>
+                    </div>
+                </div>
+                ${mismatch ? '<div style="margin-top:10px; font-size:0.78rem; color:var(--text-muted);">Near-term path diverges from the day-7 endpoint. The early move is shown separately so reversal setups are explicit.</div>' : ''}
+            `;
+        }
+
+        function renderForecastPostmortem(viewRes) {
+            const card = document.getElementById('forecastPostmortemCard');
+            const content = document.getElementById('forecastPostmortemContent');
+            if (!card || !content) return;
+
+            const pm = (viewRes && typeof viewRes.forecast_postmortem === 'object' && viewRes.forecast_postmortem)
+                ? viewRes.forecast_postmortem
+                : null;
+            if (!pm || (!pm.day1 && !pm.day7)) {
+                card.style.display = 'none';
+                content.innerHTML = '';
+                return;
+            }
+
+            const fmtMoney = (n) => n == null ? '--' : Number(n).toFixed(2);
+            const fmtPct = (n) => n == null ? '--' : `${n >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
+            const errorColor = (n) => n == null ? 'var(--text-muted)' : (n > 0 ? '#ef4444' : '#10b981');
+            const outcomeTone = (helped) => {
+                if (helped === true) return { label: 'Geo improved the miss', color: '#10b981', bg: 'rgba(16, 185, 129, 0.14)' };
+                if (helped === false) return { label: 'Geo worsened the miss', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.14)' };
+                return { label: 'Geo matched baseline', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)' };
+            };
+            const renderHorizon = (label, item) => {
+                if (!item) return '';
+                const tone = outcomeTone(item.geo_helped);
+                const actualDateText = item.actual_date_used && item.actual_date_used !== item.target_date
+                    ? `Actual close used: ${formatShortDate(item.actual_date_used)}`
+                    : `Target close: ${formatShortDate(item.target_date)}`;
+                return `
+                    <div style="border:1px solid var(--border); border-radius:14px; padding:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;">
+                            <div>
+                                <div style="font-size:0.82rem; font-weight:700; color:var(--text-main);">${label}</div>
+                                <div style="font-size:0.74rem; color:var(--text-muted);">${actualDateText}</div>
+                            </div>
+                            <span style="padding:6px 10px; border-radius:999px; font-size:0.72rem; font-weight:700; color:${tone.color}; background:${tone.bg};">${tone.label}</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px;">
+                            <div><div style="font-size:0.7rem; color:var(--text-muted);">Baseline</div><div style="font-weight:700;">PKR ${fmtMoney(item.baseline_predicted_price)}</div><div style="font-size:0.74rem; color:${errorColor(item.baseline_error_pct)};">Err ${fmtPct(item.baseline_error_pct)}</div></div>
+                            <div><div style="font-size:0.7rem; color:var(--text-muted);">Geo</div><div style="font-weight:700;">${item.geo_predicted_price == null ? '--' : `PKR ${fmtMoney(item.geo_predicted_price)}`}</div><div style="font-size:0.74rem; color:${errorColor(item.geo_error_pct)};">Err ${fmtPct(item.geo_error_pct)}</div></div>
+                            <div><div style="font-size:0.7rem; color:var(--text-muted);">Actual</div><div style="font-weight:700;">PKR ${fmtMoney(item.actual_price)}</div><div style="font-size:0.74rem; color:${(item.actual_change_pct || 0) >= 0 ? '#10b981' : '#ef4444'};">${fmtPct(item.actual_change_pct)}</div></div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const rootCauseTags = Array.isArray(pm.root_cause_tags) ? pm.root_cause_tags : [];
+            const summaryBadges = rootCauseTags.length
+                ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">${rootCauseTags.map(tag => `<span style="padding:5px 9px; border-radius:999px; background:#f8fafc; border:1px solid var(--border); font-size:0.72rem; color:var(--text-muted);">${humanizeSlug(tag)}</span>`).join('')}</div>`
+                : '';
+
+            content.innerHTML = `
+                <div style="display:grid; gap:12px;">
+                    ${renderHorizon('Day 1', pm.day1)}
+                    ${renderHorizon('Day 7', pm.day7)}
+                </div>
+                ${(pm.dominant_miss_driver || summaryBadges) ? `
+                    <div style="margin-top:14px; padding:12px; border-radius:12px; background:#f8fafc; border:1px solid var(--border);">
+                        <div style="font-size:0.74rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">DOMINANT DRIVER</div>
+                        <div style="font-size:0.88rem; font-weight:700; color:var(--text-main);">${pm.dominant_miss_driver ? humanizeSlug(pm.dominant_miss_driver) : 'Not classified'}</div>
+                        ${summaryBadges}
+                    </div>` : ''}
+            `;
+            card.style.display = 'block';
+        }
+
         function normalizeMonthlyForecastItem(item) {
             if (!item || typeof item !== 'object') return null;
             const reasoningObj = (item.reasoning && typeof item.reasoning === 'object') ? item.reasoning : {};
@@ -2864,6 +2987,52 @@
                 `
                 : `<div class="geo-overlay-status">No day-level geo drift points available for this horizon.</div>`;
 
+            const detDay1 = Number(summary.deterministic_day1_pct);
+            const aiDay1 = Number(summary.ai_trajectory_day1_pct);
+            const blendDay1 = Number(summary.blended_day1_pct);
+            const detDay7 = Number(summary.deterministic_day7_pct);
+            const aiDay7 = Number(summary.ai_trajectory_day7_pct);
+            const blendDay7 = Number(summary.blended_day7_pct);
+            const blendWeight = Number(summary.blend_weight);
+            const directionConflict = Boolean(summary.direction_conflict);
+            const dominantDriver = summary.dominant_driver || 'deterministic';
+            const hasWhyBreakdown = [detDay1, aiDay1, blendDay1, detDay7, aiDay7, blendDay7].some(Number.isFinite);
+            const fmtPct = (n) => Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n.toFixed(2)}%` : 'N/A';
+            const fmtColor = (n) => Number.isFinite(n) ? (n >= 0 ? '#10b981' : '#ef4444') : '#6b7280';
+            const conflictNote = directionConflict
+                ? `<div style="margin-top:6px;color:#b45309;">
+                        AI trajectory signal and deterministic geo-risk signal point in opposite directions; deterministic risk stack currently has the stronger near-term effect.
+                   </div>`
+                : '';
+            const whyGeoHtml = hasWhyBreakdown
+                ? `
+                    <div class="geo-overlay-status" style="margin-top:10px;">
+                        <strong>Why Geo Forecast Looks This Way</strong><br>
+                        Blend weight: ${Number.isFinite(blendWeight) ? blendWeight.toFixed(2) : '0.00'} · Dominant driver: ${dominantDriver}
+                        <table class="geo-horizon-table" style="margin-top:8px;">
+                            <thead>
+                                <tr><th>Horizon</th><th>Deterministic</th><th>AI Trajectory</th><th>Blended</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Day 1</td>
+                                    <td style="color:${fmtColor(detDay1)};">${fmtPct(detDay1)}</td>
+                                    <td style="color:${fmtColor(aiDay1)};">${fmtPct(aiDay1)}</td>
+                                    <td style="color:${fmtColor(blendDay1)};">${fmtPct(blendDay1)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Day 7</td>
+                                    <td style="color:${fmtColor(detDay7)};">${fmtPct(detDay7)}</td>
+                                    <td style="color:${fmtColor(aiDay7)};">${fmtPct(aiDay7)}</td>
+                                    <td style="color:${fmtColor(blendDay7)};">${fmtPct(blendDay7)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        ${conflictNote}
+                    </div>
+                `
+                : '';
+
             content.innerHTML = `
                 <div class="geo-overlay-status">
                     Status: Enabled and applied.<br>
@@ -2871,6 +3040,7 @@
                     ${shockReason ? `<br>Shock reason: ${shockReason}` : ''}
                 </div>
                 ${interpretationHtml}
+                ${whyGeoHtml}
                 ${catalystBreakdownHtml}
                 <div class="geo-chip-grid">${chipsHtml}</div>
                 ${driftHtml}
@@ -3551,33 +3721,43 @@
                 }
             }
 
-            // Display Prediction Reasoning (Why bullish/bearish)
-            if (viewRes.prediction_reasoning && !viewRes.prediction_reasoning.error) {
-                const r = viewRes.prediction_reasoning;
+            // Display Prediction Reasoning + path direction summary
+            const hasReasoning = Boolean(viewRes.prediction_reasoning && !viewRes.prediction_reasoning.error);
+            const hasDirectionMeta = Boolean(viewRes.direction_meta && Object.keys(viewRes.direction_meta).length > 0);
+            if (hasReasoning || hasDirectionMeta) {
+                const r = hasReasoning ? viewRes.prediction_reasoning : {};
                 const card = document.getElementById('predictionSignalsCard');
                 card.style.display = 'block';
 
-                // Direction badge
                 const dirBadge = document.getElementById('predictionDirection');
-                dirBadge.innerText = `${r.emoji} ${r.direction}`;
-                if (r.direction === 'BULLISH') {
-                    dirBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-                    dirBadge.style.color = '#10b981';
-                } else if (r.direction === 'BEARISH') {
-                    dirBadge.style.background = 'rgba(239, 68, 68, 0.15)';
-                    dirBadge.style.color = '#ef4444';
+                const meta = viewRes.direction_meta || {};
+                const nearTermDirection = viewRes.near_term_direction || meta.near_term_direction || 'NEUTRAL';
+                const day7Direction = viewRes.day7_direction || meta.day7_direction || meta.display_direction || r.direction || 'NEUTRAL';
+                const mixedPath = nearTermDirection !== day7Direction;
+                if (mixedPath) {
+                    dirBadge.innerText = 'MIXED PATH';
+                    dirBadge.style.background = 'rgba(245, 158, 11, 0.18)';
+                    dirBadge.style.color = '#b45309';
                 } else {
-                    dirBadge.style.background = 'rgba(156, 163, 175, 0.15)';
-                    dirBadge.style.color = '#9ca3af';
+                    const visual = directionVisual(day7Direction);
+                    const prefix = r.emoji ? `${r.emoji} ` : '';
+                    dirBadge.innerText = `${prefix}${visual.text}`;
+                    dirBadge.style.background = visual.bg;
+                    dirBadge.style.color = visual.color;
                 }
+
                 const stabilityNote = viewRes.direction_meta && viewRes.direction_meta.stability_note
                     ? ` ${viewRes.direction_meta.stability_note}`
                     : '';
-                document.getElementById('predictionExplanation').innerText = `${r.explanation || ''}${stabilityNote}`.trim();
+                const pathExplanation = mixedPath
+                    ? `Near-term path is ${nearTermDirection.toLowerCase()} before shifting to ${day7Direction.toLowerCase()} by day 7.`
+                    : `Path stays ${day7Direction.toLowerCase()} through day 7.`;
+                document.getElementById('predictionExplanation').innerText = `${r.explanation || ''} ${pathExplanation}${stabilityNote}`.trim();
+                renderDirectionPathSummary(viewRes);
 
                 // Bullish signals
                 const bullishList = document.getElementById('bullishList');
-                if (r.bullish_signals && r.bullish_signals.length > 0) {
+                if (hasReasoning && r.bullish_signals && r.bullish_signals.length > 0) {
                     bullishList.innerHTML = r.bullish_signals.map(s =>
                         `<div style="padding: 4px 0; border-bottom: 1px solid #eee;">
                             <span style="color: #10b981; font-weight: 600;">[${s.category}]</span> 
@@ -3591,7 +3771,7 @@
 
                 // Bearish signals
                 const bearishList = document.getElementById('bearishList');
-                if (r.bearish_signals && r.bearish_signals.length > 0) {
+                if (hasReasoning && r.bearish_signals && r.bearish_signals.length > 0) {
                     bearishList.innerHTML = r.bearish_signals.map(s =>
                         `<div style="padding: 4px 0; border-bottom: 1px solid #eee;">
                             <span style="color: #ef4444; font-weight: 600;">[${s.category}]</span> 
@@ -3605,7 +3785,7 @@
 
                 // Neutral signals
                 const neutralList = document.getElementById('neutralList');
-                if (r.neutral_signals && r.neutral_signals.length > 0) {
+                if (hasReasoning && r.neutral_signals && r.neutral_signals.length > 0) {
                     neutralList.innerHTML = r.neutral_signals.map(s =>
                         `<div style="padding: 4px 0; color: #888;">
                             <span style="font-weight: 600;">[${s.category}]</span> ${s.signal}
@@ -3619,6 +3799,7 @@
                 renderGeoOverlay(viewRes);
             } else {
                 document.getElementById('predictionSignalsCard').style.display = 'none';
+                document.getElementById('directionPathSummary').style.display = 'none';
             }
 
             // Prepare Chart Data
@@ -3631,6 +3812,7 @@
 
             // Render Recovery Scenarios
             renderRecoveryPanel(viewRes);
+            renderForecastPostmortem(viewRes);
 
             renderInsightsPanel(viewRes, 'insightsPanel');
             filterChart(365); // Default 1 year
@@ -3853,6 +4035,20 @@
             const assessMethod = traj.assessment_method || 'keyword_only';
             let llmHtml = '';
             if (llmData) {
+                const geoSummary = ((res.geo_comparison || {}).adjustment_summary || {});
+                const detDay1 = Number(geoSummary.deterministic_day1_pct);
+                const aiDay1 = Number(geoSummary.ai_trajectory_day1_pct);
+                const blendedDay1 = Number(geoSummary.blended_day1_pct);
+                const hasConflict = Boolean(geoSummary.direction_conflict);
+                let conflictShortNote = '';
+                if (hasConflict) {
+                    const blendDir = Number.isFinite(blendedDay1) ? (blendedDay1 >= 0 ? 'upside' : 'downside') : 'pressure';
+                    const aiTone = Number.isFinite(aiDay1) ? (aiDay1 >= 0 ? 'bullish' : 'bearish') : 'mixed';
+                    const detTone = Number.isFinite(detDay1) ? (detDay1 >= 0 ? 'bullish' : 'bearish') : 'mixed';
+                    conflictShortNote = `<div style="margin-top:6px;font-size:0.68rem;color:#92400e;">
+                        AI trajectory is ${aiTone}, but deterministic geo-risk is ${detTone} and still dominates near-term ${blendDir} (deterministic: ${Number.isFinite(detDay1) ? `${detDay1 >= 0 ? '+' : ''}${detDay1.toFixed(2)}%` : 'n/a'}, AI: ${Number.isFinite(aiDay1) ? `${aiDay1 >= 0 ? '+' : ''}${aiDay1.toFixed(2)}%` : 'n/a'}).
+                    </div>`;
+                }
                 const eventsHtml = (llmData.key_events || []).slice(0, 3).map(e => {
                     const sigColor = e.significance === 'critical' ? '#dc2626' : e.significance === 'major' ? '#f59e0b' : '#6b7280';
                     return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:6px;font-size:0.68rem;background:${sigColor}18;color:${sigColor};border:1px solid ${sigColor}33;">${e.event}</span>`;
@@ -3879,6 +4075,7 @@
                             </div>
                             <span style="font-size:0.65rem;color:#6b7280;">${ceasefireBar}%</span>
                         </div>
+                        ${conflictShortNote}
                         ${eventsHtml ? `<div style="margin-top:4px;">${eventsHtml}</div>` : ''}
                     </div>
                 `;
@@ -4966,7 +5163,7 @@
             container.innerHTML = `
             <table class="scanner-table">
                 <thead><tr>
-                    <th>Symbol</th><th>Date</th><th>Current</th><th>Predicted</th>
+                    <th>Symbol</th><th>Date</th><th>Variant</th><th>Target</th><th>Current</th><th>Predicted</th>
                     <th>Direction</th><th>Confidence</th><th>Williams</th><th>Status</th>
                 </tr></thead>
                 <tbody>
@@ -4982,10 +5179,14 @@
                         const changePct = p.current_price > 0
                             ? (((p.predicted_price - p.current_price) / p.current_price) * 100).toFixed(1)
                             : '0.0';
+                        const variant = p.variant ? humanizeSlug(p.variant) : 'Baseline';
+                        const target = p.target_horizon ? humanizeSlug(p.target_horizon) : `Day ${p.horizon_days || '--'}`;
                         return `
                         <tr class="scanner-row" style="cursor:pointer;" onclick="analyzeStock('${p.symbol}')">
                             <td style="font-weight:700;">${p.symbol}</td>
                             <td>${date}</td>
+                            <td>${variant}</td>
+                            <td>${target}</td>
                             <td>PKR ${(p.current_price || 0).toFixed(2)}</td>
                             <td>PKR ${(p.predicted_price || 0).toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct}%)</td>
                             <td style="color:${dirColor}; font-weight:600;">${p.predicted_direction || 'N/A'}</td>
@@ -5355,20 +5556,83 @@
             const crashNote = document.getElementById('portfolioCrashNote');
             if (crashNote) crashNote.style.display = asianMarketCrashActive ? 'block' : 'none';
 
-            for (const h of holdings) {
-                const cached = priceCache[h.symbol];
-                if (cached && Number.isFinite(cached.price) && cached.price > 0) {
-                    prices[h.symbol] = cached.price;
-                    stalePrices[h.symbol] = 'cache';
-                    const cachedMove = ptExtractDailyMove(cached);
-                    if (cachedMove) dailyMoves[h.symbol] = cachedMove;
-                } else if (Number.isFinite(h.lastPrice) && h.lastPrice > 0) {
-                    prices[h.symbol] = h.lastPrice;
-                    stalePrices[h.symbol] = 'holding-last';
-                } else {
-                    // Ensure we always show a usable baseline instead of blank cells.
-                    prices[h.symbol] = h.avgBuy;
-                    stalePrices[h.symbol] = 'avg-buy';
+            // Fire API call immediately so it runs while we prepare cached data
+            const symbols = holdings.length > 0 ? holdings.map(h => h.symbol) : [];
+            const batchPromise = symbols.length > 0 ? ptFetchPricesBatch(symbols) : Promise.resolve(null);
+
+            // Race: give the API a short window to respond before showing cached prices
+            // If backend cache is warm, this resolves in <50ms — user never sees "(cached)"
+            let fastBatch = null;
+            if (symbols.length > 0) {
+                const FAST_WINDOW_MS = 350;
+                fastBatch = await Promise.race([
+                    batchPromise,
+                    new Promise(resolve => setTimeout(() => resolve('__timeout__'), FAST_WINDOW_MS)),
+                ]);
+                if (fastBatch === '__timeout__') fastBatch = null;
+            }
+
+            // If we got live data fast, use it directly — skip showing "(cached)" entirely
+            if (fastBatch && typeof fastBatch === 'object') {
+                for (const h of holdings) {
+                    const payload = fastBatch[h.symbol];
+                    const livePrice = payload && payload.price != null ? Number(payload.price) : NaN;
+                    if (Number.isFinite(livePrice) && livePrice > 0) {
+                        prices[h.symbol] = livePrice;
+                        stalePrices[h.symbol] = '';
+                        const dailyMove = ptExtractDailyMove(payload);
+                        if (dailyMove) dailyMoves[h.symbol] = dailyMove;
+                        priceCache[h.symbol] = {
+                            price: livePrice,
+                            date: payload && payload.date ? payload.date : '',
+                            source: payload && payload.source ? payload.source : 'live',
+                            fetchedAt: new Date().toISOString(),
+                            change: payload && payload.change != null ? Number(payload.change) : null,
+                            change_pct: payload && payload.change_pct != null ? Number(payload.change_pct) : null,
+                            ldcp: payload && payload.ldcp != null ? Number(payload.ldcp) : null,
+                            open: payload && payload.open != null ? Number(payload.open) : null,
+                            change_basis: payload && typeof payload.change_basis === 'string' ? payload.change_basis : '',
+                        };
+                        const hold = holdings.find(x => x.symbol === h.symbol);
+                        if (hold && hold.lastPrice !== livePrice) {
+                            hold.lastPrice = livePrice;
+                            hold.lastPriceAt = new Date().toISOString();
+                            holdingsMutated = true;
+                        }
+                        sources.push(payload && payload.source ? payload.source : 'live');
+                    } else {
+                        // Live didn't have this symbol — fall back to cache
+                        const cached = priceCache[h.symbol];
+                        if (cached && Number.isFinite(cached.price) && cached.price > 0) {
+                            prices[h.symbol] = cached.price;
+                            stalePrices[h.symbol] = 'cache';
+                            const cachedMove = ptExtractDailyMove(cached);
+                            if (cachedMove) dailyMoves[h.symbol] = cachedMove;
+                        } else if (Number.isFinite(h.lastPrice) && h.lastPrice > 0) {
+                            prices[h.symbol] = h.lastPrice;
+                            stalePrices[h.symbol] = 'holding-last';
+                        } else {
+                            prices[h.symbol] = h.avgBuy;
+                            stalePrices[h.symbol] = 'avg-buy';
+                        }
+                    }
+                }
+            } else {
+                // API didn't respond fast enough — show cached/fallback while we wait
+                for (const h of holdings) {
+                    const cached = priceCache[h.symbol];
+                    if (cached && Number.isFinite(cached.price) && cached.price > 0) {
+                        prices[h.symbol] = cached.price;
+                        stalePrices[h.symbol] = 'cache';
+                        const cachedMove = ptExtractDailyMove(cached);
+                        if (cachedMove) dailyMoves[h.symbol] = cachedMove;
+                    } else if (Number.isFinite(h.lastPrice) && h.lastPrice > 0) {
+                        prices[h.symbol] = h.lastPrice;
+                        stalePrices[h.symbol] = 'holding-last';
+                    } else {
+                        prices[h.symbol] = h.avgBuy;
+                        stalePrices[h.symbol] = 'avg-buy';
+                    }
                 }
             }
 
@@ -5386,11 +5650,12 @@
             }
 
             if (holdings.length > 0) {
-                const symbols = holdings.map(h => h.symbol);
-                const batchPrices = await ptFetchPricesBatch(symbols);
-                let unresolved = holdings.slice();
+                const alreadyLive = fastBatch && typeof fastBatch === 'object';
+                // If fast path already resolved, skip redundant batch processing
+                const batchPrices = alreadyLive ? fastBatch : await batchPromise;
+                let unresolved = alreadyLive ? [] : holdings.slice();
 
-                if (batchPrices && typeof batchPrices === 'object') {
+                if (!alreadyLive && batchPrices && typeof batchPrices === 'object') {
                     unresolved = [];
                     for (const h of holdings) {
                         const payload = batchPrices[h.symbol];
@@ -5462,8 +5727,11 @@
 
                 ptSavePriceCache(priceCache);
                 if (holdingsMutated) ptSaveHoldings(holdings);
-                ptRenderTable(holdings, prices, stalePrices, dailyMoves);
-                ptRenderSummary(holdings, prices, stalePrices);
+                // Fast path already rendered with live data; only re-render if slow path updated prices
+                if (!alreadyLive) {
+                    ptRenderTable(holdings, prices, stalePrices, dailyMoves);
+                    ptRenderSummary(holdings, prices, stalePrices);
+                }
                 if (sourceEl) {
                     if (sources.length > 0) {
                         const uniq = [...new Set(sources)];
@@ -5690,6 +5958,11 @@
                 daily_predictions_without_geo: baseline,
                 daily_predictions_with_geo: Array.isArray(results?.daily_predictions_with_geo) ? results.daily_predictions_with_geo : [],
                 geo_comparison: (results && typeof results.geo_comparison === 'object' && results.geo_comparison) ? results.geo_comparison : {},
+                direction_meta: (results && typeof results.direction_meta === 'object' && results.direction_meta) ? results.direction_meta : {},
+                near_term_direction: results?.near_term_direction || results?.direction_meta?.near_term_direction || 'NEUTRAL',
+                day7_direction: results?.day7_direction || results?.direction_meta?.day7_direction || 'NEUTRAL',
+                path_shape: results?.path_shape || results?.direction_meta?.path_shape || 'volatile_flat',
+                forecast_postmortem: (results && typeof results.forecast_postmortem === 'object' && results.forecast_postmortem) ? results.forecast_postmortem : null,
             };
         }
 

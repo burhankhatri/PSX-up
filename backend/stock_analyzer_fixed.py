@@ -14,10 +14,10 @@ import subprocess
 import re
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import joblib
 import asyncio
-from typing import Union, Optional
+from typing import Dict, List, Union, Optional
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
@@ -135,6 +135,309 @@ def _merge_geo_overlay_news(symbol: str, sentiment_result: Optional[dict]) -> tu
         unique_news.append(item)
 
     return unique_news, diagnostics
+
+
+def _build_geo_macro_prompt_context() -> dict:
+    """Collect request-scoped Nikkei/KOSPI + crude context for geo sentiment prompts."""
+    context = {
+        "available": False,
+        "nikkei": {},
+        "kospi": {},
+        "crude": {},
+    }
+    try:
+        from backend.external_features import fetch_asian_market_realtime, fetch_commodities
+    except Exception:
+        return context
+
+    try:
+        asian = fetch_asian_market_realtime() or {}
+        context["nikkei"] = asian.get("nikkei", {}) or {}
+        context["kospi"] = asian.get("kospi", {}) or {}
+    except Exception:
+        pass
+
+    try:
+        commodities = fetch_commodities(period="1mo")
+        if commodities is not None and not commodities.empty:
+            oil_close = pd.to_numeric(commodities.get("oil_close"), errors="coerce").iloc[-1] if "oil_close" in commodities.columns else np.nan
+            oil_change = pd.to_numeric(commodities.get("oil_change"), errors="coerce").iloc[-1] if "oil_change" in commodities.columns else np.nan
+            oil_trend = pd.to_numeric(commodities.get("oil_trend"), errors="coerce").iloc[-1] if "oil_trend" in commodities.columns else np.nan
+            context["crude"] = {
+                "oil_close": round(float(oil_close), 2) if pd.notna(oil_close) else None,
+                "oil_change_pct": round(float(oil_change) * 100.0, 2) if pd.notna(oil_change) else None,
+                "oil_trend_pct": round(float(oil_trend) * 100.0, 2) if pd.notna(oil_trend) else None,
+            }
+    except Exception:
+        pass
+
+    context["available"] = bool(context["nikkei"] or context["kospi"] or context["crude"])
+    return context
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not np.isfinite(parsed):
+        return default
+    return parsed
+
+
+def _normalize_prediction_date(date_value) -> Optional[str]:
+    if date_value in (None, ""):
+        return None
+    try:
+        return pd.to_datetime(date_value).strftime('%Y-%m-%d')
+    except Exception:
+        return None
+
+
+def _resolve_prediction_target_date(
+    prediction: Optional[Dict],
+    prediction_generated_at: Optional[Union[str, datetime]],
+    horizon_days: int,
+) -> Optional[str]:
+    if isinstance(prediction, dict):
+        direct_date = _normalize_prediction_date(prediction.get('date') or prediction.get('target_date'))
+        if direct_date:
+            return direct_date
+
+    if prediction_generated_at:
+        try:
+            base_dt = pd.to_datetime(prediction_generated_at)
+            return (base_dt + pd.Timedelta(days=horizon_days)).strftime('%Y-%m-%d')
+        except Exception:
+            pass
+
+    return (datetime.now() + timedelta(days=horizon_days)).strftime('%Y-%m-%d')
+
+
+def _prediction_direction(prediction: Optional[Dict], neutral_band_pct: float = 0.0) -> str:
+    if not isinstance(prediction, dict):
+        return 'NEUTRAL'
+    stable = str(prediction.get('stable_direction', '') or '').upper()
+    if stable == 'UP':
+        return 'BULLISH'
+    if stable == 'DOWN':
+        return 'BEARISH'
+    if stable in {'BULLISH', 'BEARISH', 'NEUTRAL'}:
+        return stable
+    return direction_from_change_pct(
+        _safe_float(prediction.get('upside_potential'), 0.0),
+        neutral_band_pct=neutral_band_pct,
+    )
+
+
+def _price_error_pct(predicted_price: Optional[float], actual_price: Optional[float]) -> Optional[float]:
+    pred = _safe_float(predicted_price, 0.0)
+    actual = _safe_float(actual_price, 0.0)
+    if pred <= 0 or actual <= 0:
+        return None
+    return round(((pred - actual) / actual) * 100.0, 4)
+
+
+def _infer_postmortem_root_cause(
+    symbol: str,
+    geo_comparison: Optional[Dict],
+    postmortem: Dict,
+) -> tuple[Optional[str], List[str]]:
+    geo = geo_comparison or {}
+    interp = (geo.get('interpretation') or {}) if isinstance(geo, dict) else {}
+    summary = (geo.get('adjustment_summary') or {}) if isinstance(geo, dict) else {}
+    shock = (geo.get('shock_data') or {}) if isinstance(geo, dict) else {}
+    macro = (geo.get('macro_confirmation') or {}) if isinstance(geo, dict) else {}
+    crude = (macro.get('crude') or {}) if isinstance(macro, dict) else {}
+    stock_health = (geo.get('stock_health') or {}) if isinstance(geo, dict) else {}
+
+    helped_flags = [
+        postmortem[h].get('geo_helped')
+        for h in ('day1', 'day7')
+        if isinstance(postmortem.get(h), dict) and postmortem[h].get('geo_helped') is not None
+    ]
+    if not helped_flags:
+        return None, []
+
+    tags: List[str] = []
+    symbol_upper = str(symbol or '').upper()
+    oil_change_pct = _safe_float(crude.get('oil_change_pct'), 0.0)
+    oil_trend_pct = _safe_float(crude.get('oil_trend_pct'), 0.0)
+    momentum_20d = _safe_float(stock_health.get('momentum_20d'), 0.0)
+
+    geo_worsened = any(flag is False for flag in helped_flags)
+    geo_helped = any(flag is True for flag in helped_flags)
+
+    dominant_miss_driver: Optional[str]
+    if geo_worsened:
+        if interp.get('sector_interpretation') == 'upstream_energy_tailwind':
+            dominant_miss_driver = 'upstream_tailwind_overestimate'
+            if momentum_20d < 0:
+                tags.append('momentum_ignored')
+            if oil_change_pct < 2.0 and oil_trend_pct < 4.0:
+                tags.append('no_crude_confirmation')
+            if str(interp.get('evidence_quality', 'weak')).lower() in {'weak', 'limited'}:
+                tags.append('weak_upstream_evidence')
+        elif bool(summary.get('shock_detected')) or bool(shock.get('shock_detected')):
+            dominant_miss_driver = 'shock_overpenalty'
+            if _safe_float(summary.get('emergency_multiplier'), 1.0) >= 2.0:
+                tags.append('emergency_multiplier_aggressive')
+            if symbol_upper in INDEX_SYMBOLS:
+                tags.append('index_overlay_excess')
+            if bool(summary.get('direction_conflict')):
+                tags.append('ai_deterministic_conflict')
+        else:
+            dominant_miss_driver = 'geo_overlay_miscalibration'
+    elif geo_helped:
+        dominant_miss_driver = 'geo_overlay_helped'
+        if bool(summary.get('shock_detected')) or bool(shock.get('shock_detected')):
+            tags.append('shock_signal_confirmed')
+    else:
+        dominant_miss_driver = None
+
+    return dominant_miss_driver, sorted(set(tags))
+
+
+def build_forecast_postmortem(
+    symbol: str,
+    current_price: float,
+    baseline_predictions: List[Dict],
+    geo_predictions: Optional[List[Dict]] = None,
+    geo_comparison: Optional[Dict] = None,
+    prediction_generated_at: Optional[Union[str, datetime]] = None,
+) -> Optional[Dict]:
+    """Compare baseline and geo forecast checkpoints against realized closes when available."""
+    if not baseline_predictions:
+        return None
+
+    try:
+        from backend.prediction_tuning import _fetch_actual_on_or_after
+    except Exception:
+        return None
+
+    cache: Dict = {}
+    payload: Dict[str, Dict] = {}
+    geo_predictions = geo_predictions or []
+    horizons = (
+        ('day1', 'day_1', 0, 1),
+        ('day7', 'day_7', 6, 7),
+    )
+
+    for payload_key, _, idx, horizon_days in horizons:
+        baseline_pred = baseline_predictions[idx] if idx < len(baseline_predictions) else None
+        geo_pred = geo_predictions[idx] if idx < len(geo_predictions) else None
+        if baseline_pred is None and geo_pred is None:
+            continue
+
+        target_date = _resolve_prediction_target_date(
+            baseline_pred or geo_pred,
+            prediction_generated_at,
+            horizon_days,
+        )
+        if not target_date:
+            continue
+
+        try:
+            actual_price, actual_date = _fetch_actual_on_or_after(symbol, target_date, cache)
+        except Exception:
+            continue
+        if actual_price is None:
+            continue
+
+        baseline_price = _safe_float((baseline_pred or {}).get('predicted_price'), 0.0)
+        geo_price = _safe_float((geo_pred or {}).get('predicted_price'), 0.0) if geo_pred else None
+        baseline_error_pct = _price_error_pct(baseline_price, actual_price)
+        geo_error_pct = _price_error_pct(geo_price, actual_price) if geo_price else None
+        baseline_abs = abs(baseline_error_pct) if baseline_error_pct is not None else None
+        geo_abs = abs(geo_error_pct) if geo_error_pct is not None else None
+        geo_helped = None
+        if baseline_abs is not None and geo_abs is not None:
+            if abs(geo_abs - baseline_abs) <= 1e-9:
+                geo_helped = None
+            else:
+                geo_helped = geo_abs < baseline_abs
+
+        geo_adjustment_pct = None
+        if geo_price is not None and baseline_price > 0:
+            geo_adjustment_pct = round(((geo_price - baseline_price) / baseline_price) * 100.0, 4)
+
+        payload[payload_key] = {
+            'target_date': target_date,
+            'actual_date_used': actual_date,
+            'baseline_predicted_price': round(baseline_price, 2) if baseline_price > 0 else None,
+            'geo_predicted_price': round(geo_price, 2) if geo_price else None,
+            'actual_price': round(float(actual_price), 2),
+            'actual_change_pct': round(((float(actual_price) - current_price) / current_price) * 100.0, 4)
+            if current_price > 0 else None,
+            'baseline_error_pct': baseline_error_pct,
+            'geo_error_pct': geo_error_pct,
+            'geo_adjustment_pct': geo_adjustment_pct,
+            'geo_helped': geo_helped,
+        }
+
+    if not payload:
+        return None
+
+    dominant_miss_driver, root_cause_tags = _infer_postmortem_root_cause(symbol, geo_comparison, payload)
+    payload['dominant_miss_driver'] = dominant_miss_driver
+    payload['root_cause_tags'] = root_cause_tags
+    return payload
+
+
+def _log_prediction_variants(
+    logger,
+    *,
+    symbol: str,
+    current_price: float,
+    baseline_predictions: List[Dict],
+    geo_predictions: Optional[List[Dict]],
+    analysis_id: str,
+    prediction_generated_at: datetime,
+    neutral_band_pct: float = 0.0,
+    include_geo_variant: bool = True,
+) -> List[Dict]:
+    logged_entries: List[Dict] = []
+    geo_predictions = geo_predictions or []
+    horizons = (
+        ('day_1', 0, 1),
+        ('day_7', 6, 7),
+    )
+
+    variant_series: List[tuple[str, List[Dict]]] = [('baseline', baseline_predictions)]
+    if include_geo_variant:
+        variant_series.append(('geo', geo_predictions or baseline_predictions))
+
+    for variant, predictions in variant_series:
+        for target_horizon, idx, horizon_days in horizons:
+            if idx >= len(predictions):
+                continue
+            pred = predictions[idx]
+            baseline_pred = baseline_predictions[idx] if idx < len(baseline_predictions) else None
+            baseline_price = _safe_float((baseline_pred or {}).get('predicted_price'), 0.0)
+            predicted_price = _safe_float(pred.get('predicted_price'), 0.0)
+            geo_adjustment_pct = 0.0
+            if variant == 'geo' and baseline_price > 0:
+                geo_adjustment_pct = round(((predicted_price - baseline_price) / baseline_price) * 100.0, 4)
+
+            entry = logger.log_prediction(
+                symbol=symbol,
+                current_price=current_price,
+                predicted_price=predicted_price,
+                predicted_direction=_prediction_direction(pred, neutral_band_pct=neutral_band_pct),
+                confidence=_safe_float(pred.get('confidence'), 0.5),
+                horizon_days=horizon_days,
+                williams_signal=pred.get('williams_signal'),
+                sector=pred.get('sector'),
+                evaluation_date=_resolve_prediction_target_date(pred, prediction_generated_at, horizon_days),
+                prediction_date=prediction_generated_at,
+                analysis_id=analysis_id,
+                variant=variant,
+                target_horizon=target_horizon,
+                geo_adjustment_pct=geo_adjustment_pct,
+            )
+            logged_entries.append(entry)
+
+    return logged_entries
 
 
 def fetch_month_data(symbol: str, month: int, year: int):
@@ -937,6 +1240,8 @@ def _run_shadow_comparison(
         geo_features=geo_features or {},
         shock_data=shock_data,
         symbol=symbol,
+        crude_data=None,       # shadow comparison: no crude gate needed
+        stock_health=None,
     )
     comparison["interpretation"] = geo_interpretation
 
@@ -1136,6 +1441,18 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'message': f'⚠️ Data last updated: {last_data_date} ({trading_days_stale} trading day(s) behind). Predictions will start from the next uncovered trading session.'
             })
 
+        # Request-scoped geo toggle: single source of truth for this run.
+        geo_enabled = (
+            bool(request_geo_toggle)
+            if request_geo_toggle is not None
+            else (
+                bool(_rcfg.enable_geo_features) if _rcfg else (
+                    os.getenv("ENABLE_GEO_FEATURES", "false").strip().lower() in {"1", "true", "yes", "on"}
+                )
+            )
+        )
+        geo_prompt_context = _build_geo_macro_prompt_context() if geo_enabled else {}
+
         # Try to use RESEARCH MODEL (NEW: Based on peer-reviewed PSX studies)
         reasoning = None  # Will be recomputed from adjusted day-7 output
         research_model = None
@@ -1169,7 +1486,11 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             })
             
             # Initialize research model
-            research_model = PSXResearchModel(use_wavelet=True, symbol=symbol)
+            research_model = PSXResearchModel(
+                use_wavelet=True,
+                symbol=symbol,
+                enable_geo_context=geo_enabled,
+            )
             
             await websocket.send_json({
                 'stage': 'training',
@@ -1395,7 +1716,12 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             from backend.sentiment_math import get_rigorous_adjustment, apply_adjustments_to_predictions
             
             # Fetch and analyze news with Groq (anti-hallucination prompt)
-            sentiment_result = get_stock_sentiment(symbol, use_cache=False)
+            sentiment_result = get_stock_sentiment(
+                symbol,
+                use_cache=False,
+                geo_mode=geo_enabled,
+                geo_prompt_context=geo_prompt_context if geo_enabled else None,
+            )
             
             enable_index_recall_in_model = _rcfg.enable_index_recall_in_model if _rcfg else (
                 os.getenv('ENABLE_INDEX_RECALL_IN_MODEL', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
@@ -1444,6 +1770,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'sources_attempted': sentiment_result.get('sources_attempted', 0),
                 'sources_successful': sentiment_result.get('sources_successful', 0),
                 'filtered_count': sentiment_result.get('filtered_count', 0),
+                'geo_prompt_context_used': sentiment_result.get('geo_prompt_context_used', False),
                 'events_detected': adjustment_data['summary']['events_detected'],
                 'detected_event_types': adjustment_data['summary'].get('event_types', []),
                 'max_adjustment': adjustment_data['summary']['max_positive_adjustment'],
@@ -1498,19 +1825,14 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 
         predictions_without_geo = adjusted_predictions
         predictions_with_geo = []
-        geo_enabled = (
-            bool(request_geo_toggle)
-            if request_geo_toggle is not None
-            else (
-                bool(_rcfg.enable_geo_features) if _rcfg else (
-                    os.getenv("ENABLE_GEO_FEATURES", "false").strip().lower() in {"1", "true", "yes", "on"}
-                )
-            )
-        )
         geo_comparison = {
             "enabled": geo_enabled,
             "applied": False,
             "shock_reason": "No geopolitical shock detected" if geo_enabled else "Geo overlay disabled for this run.",
+            "macro_confirmation": {
+                "crude": geo_prompt_context.get("crude", {}) if geo_prompt_context else {},
+            },
+            "stock_health": {},
             "interpretation": {
                 "sector_interpretation": "generic",
                 "polarity": "neutral" if geo_enabled else "disabled",
@@ -1588,11 +1910,27 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 
                 # Shock detection – emergency multiplier for extreme events
                 shock_data = detect_geopolitical_shocks(news_items, symbol)
+
+                # A5/A6: compute crude confirmation and stock health for geo gate
+                _crude_for_geo = geo_prompt_context.get("crude", {}) if geo_prompt_context else {}
+                _stock_health: Optional[dict] = None
+                if df is not None and len(df) >= 20 and "Close" in df.columns:
+                    _closes = df["Close"].values
+                    _cur = float(_closes[-1])
+                    _p20 = float(_closes[-20]) if len(_closes) >= 20 else _cur
+                    _p60 = float(_closes[-60]) if len(_closes) >= 60 else _cur
+                    _stock_health = {
+                        "momentum_20d": ((_cur / _p20) - 1.0) * 100.0 if _p20 > 0 else 0.0,
+                        "momentum_60d": ((_cur / _p60) - 1.0) * 100.0 if _p60 > 0 else 0.0,
+                    }
+
                 geo_interpretation = build_geo_interpretation(
                     news_items=news_items,
                     geo_features=geo_features,
                     shock_data=shock_data,
                     symbol=symbol,
+                    crude_data=_crude_for_geo,
+                    stock_health=_stock_health,
                 )
 
                 geo_adjustment_data = build_geopolitical_daily_adjustments(
@@ -1601,6 +1939,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     symbol=symbol,
                     shock_data=shock_data,
                     interpretation=geo_interpretation,
+                    enable_ai_blend=geo_enabled,
+                    stock_health=_stock_health,
                 )
 
                 current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
@@ -1627,6 +1967,10 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                         "interpretation": geo_interpretation,
                         "overlay_news_diagnostics": geo_news_diagnostics,
                         "asian_market_signal": asian_signal,
+                        "macro_confirmation": {
+                            "crude": _crude_for_geo,
+                        },
+                        "stock_health": _stock_health or {},
                     }
                 )
 
@@ -1739,6 +2083,37 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 if display_direction != stable_direction
                 else ""
             )
+            # B1: compute near-term vs day-7 direction and path shape
+            near_term_upsides = [
+                float(p.get('upside_potential', 0) or 0)
+                for p in display_predictions[:min(7, len(display_predictions))]
+            ]
+            near_term_avg = sum(near_term_upsides) / len(near_term_upsides) if near_term_upsides else 0.0
+            _ntband = float(getattr(live_tweak_config, "neutral_band_pct", 0.0))
+            near_term_direction = direction_from_change_pct(near_term_avg, neutral_band_pct=_ntband)
+            day7_direction = display_direction
+
+            # Path shape: compare near-term trend with later trend
+            if len(display_predictions) >= 14:
+                later_upsides = [
+                    float(p.get('upside_potential', 0) or 0)
+                    for p in display_predictions[7:14]
+                ]
+                later_avg = sum(later_upsides) / len(later_upsides) if later_upsides else 0.0
+            else:
+                later_avg = near_term_avg
+
+            if near_term_avg < -1.0 and later_avg > 1.0:
+                path_shape = "near_term_drop_then_recover"
+            elif near_term_avg > 1.0 and later_avg < -1.0:
+                path_shape = "near_term_rise_then_decline"
+            elif near_term_avg < -1.0 and later_avg < -1.0:
+                path_shape = "steady_decline"
+            elif near_term_avg > 1.0 and later_avg > 1.0:
+                path_shape = "steady_rise"
+            else:
+                path_shape = "volatile_flat"
+
             direction_meta = {
                 'raw_direction': raw_direction,
                 'stable_direction': stable_direction,
@@ -1747,6 +2122,9 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'display_direction': display_direction,
                 'display_upside_pct': round(display_upside_pct, 2),
                 'stability_note': stability_note,
+                'near_term_direction': near_term_direction,
+                'day7_direction': day7_direction,
+                'path_shape': path_shape,
             }
         else:
             direction_meta = {
@@ -1757,15 +2135,39 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'display_direction': 'NEUTRAL',
                 'display_upside_pct': 0.0,
                 'stability_note': '',
+                'near_term_direction': 'NEUTRAL',
+                'day7_direction': 'NEUTRAL',
+                'path_shape': 'volatile_flat',
             }
+
+        analysis_generated_at = datetime.now()
+        analysis_id = job_id
+        current_price = float(df['Close'].iloc[-1]) if 'Close' in df.columns else 0.0
+        forecast_postmortem = build_forecast_postmortem(
+            symbol=symbol,
+            current_price=current_price,
+            baseline_predictions=predictions_without_geo,
+            geo_predictions=(
+                predictions_with_geo
+                if geo_comparison.get("enabled") and predictions_with_geo
+                else (predictions_without_geo if geo_comparison.get("enabled") else [])
+            ),
+            geo_comparison=geo_comparison,
+            prediction_generated_at=analysis_generated_at,
+        )
 
         try:
             from backend.prediction_reasoning import generate_prediction_reasoning
             if USE_RESEARCH_MODEL and research_model is not None:
                 reasoning_df = research_model.preprocess(df)
             else:
-                from backend.external_features import merge_external_features
-                reasoning_df = merge_external_features(df.copy(), symbol=symbol)
+                from backend.external_features import merge_external_features, is_oil_sector_symbol
+                reasoning_df = merge_external_features(
+                    df.copy(),
+                    symbol=symbol,
+                    include_asian_features=geo_enabled,
+                    include_oil_features=(geo_enabled or not is_oil_sector_symbol(symbol)),
+                )
 
             reasoning = generate_prediction_reasoning(
                 reasoning_df,
@@ -1804,6 +2206,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             'progress': 100,
             'message': '✅ Research-Backed Analysis Complete with AI Sentiment!',
             'results': {
+                'analysis_id': analysis_id,
                 'symbol': symbol,
                 'model': 'Research Model (SVM + MLP + External Features)' if USE_RESEARCH_MODEL else 'SOTA Ensemble + AI Sentiment',
                 'model_variant': model_variant,
@@ -1814,6 +2217,10 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     'mape': float(mape_val)
                 },
                 'direction_meta': direction_meta,
+                'near_term_direction': direction_meta.get('near_term_direction', 'NEUTRAL'),
+                'day7_direction': direction_meta.get('day7_direction', 'NEUTRAL'),
+                'path_shape': direction_meta.get('path_shape', 'volatile_flat'),
+                'forecast_postmortem': forecast_postmortem,
                 'sentiment': sentiment_summary,
                 'monthly_predictions': predictions_without_geo[:12],  # First 12 months
                 'daily_predictions': predictions_without_geo, # Backward-compatible baseline predictions
@@ -1829,7 +2236,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     'total_return': total_return,
                     'prediction_horizon': '24 months to end of 2026'
                 },
-                'current_price': float(df['Close'].iloc[-1]),
+                'current_price': current_price,
                 'data_points': len(df),
                 'features_used': len(metrics.get('weights', {})) if USE_RESEARCH_MODEL else 74,
                 'external_features_used': USE_RESEARCH_MODEL,
@@ -1845,12 +2252,17 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             import json as json_module
             with open(complete_analysis_file, 'w') as cf:
                 json_module.dump({
+                    'analysis_id': analysis_id,
                     'symbol': symbol,
-                    'generated_at': datetime.now().isoformat(),
+                    'generated_at': analysis_generated_at.isoformat(),
                     'model': 'Research Model (SVM + MLP + External Features)' if USE_RESEARCH_MODEL else 'SOTA Ensemble',
                     'model_variant': model_variant,
-                    'current_price': float(df['Close'].iloc[-1]),
+                    'current_price': current_price,
                     'direction_meta': direction_meta,
+                    'near_term_direction': direction_meta.get('near_term_direction', 'NEUTRAL'),
+                    'day7_direction': direction_meta.get('day7_direction', 'NEUTRAL'),
+                    'path_shape': direction_meta.get('path_shape', 'volatile_flat'),
+                    'forecast_postmortem': forecast_postmortem,
                     'sentiment': sentiment_summary,
                     'monthly_forecast': monthly_forecast,  # Detailed monthly analysis
                     'forecast_summary': forecast_summary,  # Overall outlook
@@ -1872,26 +2284,18 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         try:
             from backend.prediction_logger import get_prediction_logger
             logger = get_prediction_logger()
-
-            # Log the 7-day prediction for tracking
-            if len(display_predictions) >= 7:
-                pred_7d = display_predictions[6]  # Day 7 (index 6)
-                current_price = float(df['Close'].iloc[-1])
-
-                # Extract Williams signal and sector if available
-                williams_signal = pred_7d.get('williams_signal')
-                sector = pred_7d.get('sector')
-
-                logger.log_prediction(
-                    symbol=symbol,
-                    current_price=current_price,
-                    predicted_price=pred_7d['predicted_price'],
-                    predicted_direction=direction_meta.get('logged_direction', 'NEUTRAL'),
-                    confidence=pred_7d.get('confidence', 0.5),
-                    horizon_days=7,
-                    williams_signal=williams_signal,
-                    sector=sector
-                )
+            _log_prediction_variants(
+                logger,
+                symbol=symbol,
+                current_price=current_price,
+                baseline_predictions=predictions_without_geo,
+                geo_predictions=predictions_with_geo,
+                analysis_id=analysis_id,
+                prediction_generated_at=analysis_generated_at,
+                neutral_band_pct=float(getattr(live_tweak_config, "neutral_band_pct", 0.0)),
+                include_geo_variant=bool(geo_comparison.get("enabled")),
+            )
+            logger.backfill_actuals(symbol=symbol, limit=32)
         except Exception as e:
             print(f"WARNING: Prediction logging skipped: {e}")
 

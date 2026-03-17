@@ -10,6 +10,8 @@ import json
 import subprocess
 import re
 import hashlib
+import numpy as np
+import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Any
@@ -538,7 +540,13 @@ def get_groq_client():
     return Groq(api_key=api_key)
 
 
-def analyze_with_ai(symbol: str, company_name: str, news_items: List[Dict], enriched_data: Dict = None) -> Dict:
+def analyze_with_ai(
+    symbol: str,
+    company_name: str,
+    news_items: List[Dict],
+    enriched_data: Dict = None,
+    geo_macro_context: Optional[Dict[str, Any]] = None,
+) -> Dict:
     """Use Groq (Llama 3.3 70B) for intelligent sentiment analysis with anti-hallucination guardrails.
     
     Now enhanced with:
@@ -615,6 +623,19 @@ def analyze_with_ai(symbol: str, company_name: str, news_items: List[Dict], enri
                     if metrics.get('sentiment_bias'):
                         enriched_context += f"  • Content Sentiment: {metrics['sentiment_bias']}\n"
     
+    geo_macro_section = ""
+    if geo_macro_context:
+        nikkei = geo_macro_context.get('nikkei', {})
+        kospi = geo_macro_context.get('kospi', {})
+        crude = geo_macro_context.get('crude', {})
+        geo_macro_section = (
+            "\n\n🌏 GEO MACRO CONTEXT (use only as additional context, not a guaranteed signal):\n"
+            f"- Nikkei 225: {nikkei.get('change_pct', 'n/a')}% (status: {nikkei.get('status', 'unknown')})\n"
+            f"- KOSPI: {kospi.get('change_pct', 'n/a')}% (status: {kospi.get('status', 'unknown')})\n"
+            f"- Crude (CL=F): close={crude.get('oil_close', 'n/a')}, "
+            f"change={crude.get('oil_change_pct', 'n/a')}%, trend20d={crude.get('oil_trend_pct', 'n/a')}%\n"
+        )
+
     prompt = f"""You are a BALANCED Pakistani stock market analyst. Today's date is {current_date}.
 
 🔮 FORTUNE TELLER ANALYSIS MODE - Enhanced with Fundamentals
@@ -634,6 +655,7 @@ Analyze the following news about {symbol} ({company_name}):
 
 {news_text}
 {enriched_context}
+{geo_macro_section}
 
 Based on the news AND fundamental data above, provide a BALANCED analysis. 
 
@@ -730,7 +752,45 @@ def fallback_analysis(news_items: List[Dict]) -> Dict:
 # MAIN API FUNCTIONS
 # ============================================================================
 
-def get_stock_sentiment(symbol: str, use_cache: bool = True) -> Dict:
+def _build_geo_prompt_context() -> Dict[str, Any]:
+    """Build geo macro context payload from Asian markets + crude oil."""
+    context: Dict[str, Any] = {
+        'available': False,
+        'nikkei': {},
+        'kospi': {},
+        'crude': {},
+    }
+    try:
+        try:
+            from backend.external_features import fetch_asian_market_realtime, fetch_commodities
+        except Exception:
+            from external_features import fetch_asian_market_realtime, fetch_commodities
+
+        asian = fetch_asian_market_realtime() or {}
+        context['nikkei'] = asian.get('nikkei', {}) or {}
+        context['kospi'] = asian.get('kospi', {}) or {}
+        commodities = fetch_commodities(period="1mo")
+        if commodities is not None and not commodities.empty:
+            oil_close = pd.to_numeric(commodities.get('oil_close'), errors='coerce').iloc[-1] if 'oil_close' in commodities.columns else np.nan
+            oil_change = pd.to_numeric(commodities.get('oil_change'), errors='coerce').iloc[-1] if 'oil_change' in commodities.columns else np.nan
+            oil_trend = pd.to_numeric(commodities.get('oil_trend'), errors='coerce').iloc[-1] if 'oil_trend' in commodities.columns else np.nan
+            context['crude'] = {
+                'oil_close': round(float(oil_close), 2) if pd.notna(oil_close) else None,
+                'oil_change_pct': round(float(oil_change) * 100.0, 2) if pd.notna(oil_change) else None,
+                'oil_trend_pct': round(float(oil_trend) * 100.0, 2) if pd.notna(oil_trend) else None,
+            }
+        context['available'] = bool(context['nikkei'] or context['kospi'] or context['crude'])
+    except Exception:
+        context['available'] = False
+    return context
+
+
+def get_stock_sentiment(
+    symbol: str,
+    use_cache: bool = True,
+    geo_mode: bool = False,
+    geo_prompt_context: Optional[Dict[str, Any]] = None,
+) -> Dict:
     """
     🔮 Main function: Get comprehensive AI-powered sentiment for a stock.
     This is the "fortune teller" function.
@@ -749,12 +809,19 @@ def get_stock_sentiment(symbol: str, use_cache: bool = True) -> Dict:
     print(f"\n🔮 SENTIMENT ANALYSIS: {symbol} ({company_name})")
     print("=" * 50)
     
+    using_geo_prompt_context = bool(geo_mode)
+    should_read_cache = bool(use_cache and not using_geo_prompt_context)
+    should_write_cache = bool(not using_geo_prompt_context)
+
     # Check cache
-    if use_cache:
+    if should_read_cache:
         cached = load_cached_news(symbol)
         if cached:
             print("📦 Using cached analysis (less than 4 hours old)")
             return cached
+
+    if using_geo_prompt_context and geo_prompt_context is None:
+        geo_prompt_context = _build_geo_prompt_context()
     
     # 🆕 FETCH ENRICHED DATA (articles + fundamentals)
     # For index symbols (e.g., KSE100), company-level BR research scraping is often
@@ -820,7 +887,13 @@ def get_stock_sentiment(symbol: str, use_cache: bool = True) -> Dict:
     
     # Analyze with AI (Groq) - NOW WITH ENRICHED DATA!
     print("\n🤖 Analyzing with Groq (Llama 3.3) + Enriched Context...")
-    analysis = analyze_with_ai(symbol, company_name, news_items, enriched_data=enriched_data)
+    analysis = analyze_with_ai(
+        symbol,
+        company_name,
+        news_items,
+        enriched_data=enriched_data,
+        geo_macro_context=geo_prompt_context if using_geo_prompt_context else None,
+    )
     
     # Build complete result
     result = {
@@ -835,6 +908,7 @@ def get_stock_sentiment(symbol: str, use_cache: bool = True) -> Dict:
         'sources_successful': news_meta.get('sources_successful', 0),
         'filtered_count': news_meta.get('filtered_count', 0),
         'fallback_path': news_meta.get('fallback_path', []),
+        'geo_prompt_context_used': bool(using_geo_prompt_context and (geo_prompt_context or {}).get('available')),
         'enriched_data_available': enriched_data is not None and enriched_data.get('has_rich_data', False),
         'quality_score': enriched_data.get('quality_score', 0.5) if enriched_data else 0.5,
         'fundamentals': enriched_data.get('fundamentals', {}) if enriched_data else {},
@@ -850,8 +924,9 @@ def get_stock_sentiment(symbol: str, use_cache: bool = True) -> Dict:
     else:
         result['signal_emoji'] = '🟡'
     
-    # Cache result
-    save_news_to_cache(symbol, result)
+    # Cache result (geo-context runs are request-scoped and should not overwrite baseline cache)
+    if should_write_cache:
+        save_news_to_cache(symbol, result)
     
     # Print summary
     print(f"\n{'='*50}")

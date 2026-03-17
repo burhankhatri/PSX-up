@@ -116,6 +116,43 @@ SYMBOL_SECTOR: Dict[str, str] = {
 
 CACHE_DIR = Path(__file__).parent.parent / "data" / "news_cache"
 UPSTREAM_EP_SYMBOLS = frozenset({"OGDC", "PPL", "POL", "MARI"})
+
+# ---------------------------------------------------------------------------
+# PSX daily circuit-breaker limit and per-symbol-class geo caps
+# ---------------------------------------------------------------------------
+PSX_DAILY_CIRCUIT_BREAKER = 0.075  # 7.5% absolute hard ceiling
+
+# Balanced-plus policy: day-indexed caps by symbol class
+BENCHMARK_INDEX_SYMBOLS = frozenset({"KSE100", "KSE30", "KMIALL", "KMI30"})
+
+GEO_SYMBOL_CLASS_CAPS: Dict[str, Dict[int, float]] = {
+    # benchmark / index: tightest caps
+    "index": {1: 0.030, 7: 0.020},
+    # upstream E&P: moderate bullish cap
+    "upstream_ep": {1: 0.025, 7: 0.020},
+    # all other single stocks
+    "default": {1: 0.040, 7: 0.025},
+}
+
+
+def _symbol_class(symbol: Optional[str]) -> str:
+    """Return the geo cap class for *symbol*."""
+    s = (symbol or "").upper()
+    if s in BENCHMARK_INDEX_SYMBOLS:
+        return "index"
+    if s in UPSTREAM_EP_SYMBOLS:
+        return "upstream_ep"
+    return "default"
+
+
+def _apply_symbol_class_cap(adjustment: float, day: int, symbol: Optional[str]) -> float:
+    """Clamp *adjustment* to the per-symbol-class day cap and the PSX circuit breaker."""
+    caps = GEO_SYMBOL_CLASS_CAPS.get(_symbol_class(symbol), GEO_SYMBOL_CLASS_CAPS["default"])
+    # Use day 1 cap for days 1-6, day 7 cap for days 7+
+    day_cap = caps.get(7, caps[1]) if day >= 7 else caps.get(1, 0.040)
+    # Clamp to both the symbol-class cap and circuit breaker
+    hard_cap = min(day_cap, PSX_DAILY_CIRCUIT_BREAKER)
+    return max(-hard_cap, min(hard_cap, adjustment))
 DOWNSTREAM_VULNERABILITY: Dict[str, Dict[str, float | str]] = {
     "SAZEW": {
         "sector": "autos",
@@ -398,6 +435,19 @@ SHOCK_EVENT_PATTERNS: Dict[str, Dict] = {
     "freight uncertainty": {"severity": 1.5, "category": "energy"},
     "rising middle east": {"severity": 1.5, "category": "conflict"},
 }
+
+# A9: short/ambiguous patterns that need word-boundary matching to avoid false positives
+_WORD_BOUNDARY_PATTERNS = frozenset({
+    "bombs", "bombed", "invades", "crashes", "plunges", "blockade",
+})
+
+
+def _shock_pattern_matches(pattern: str, text: str) -> bool:
+    """Match shock pattern; use word boundaries for short/ambiguous terms."""
+    if pattern in _WORD_BOUNDARY_PATTERNS:
+        return bool(re.search(r'\b' + re.escape(pattern) + r'\b', text))
+    return pattern in text
+
 
 # ---------------------------------------------------------------------------
 # Resolution / de-escalation signals (positive)
@@ -897,7 +947,7 @@ def detect_geopolitical_shocks(
         text = f"{title} {desc}"
 
         for pattern, info in SHOCK_EVENT_PATTERNS.items():
-            if pattern in text and pattern not in seen_patterns:
+            if _shock_pattern_matches(pattern, text) and pattern not in seen_patterns:
                 seen_patterns.add(pattern)
                 shock_events.append({
                     "pattern": pattern,
@@ -924,15 +974,17 @@ def detect_geopolitical_shocks(
     trajectory = assess_conflict_trajectory(news_items, symbol=symbol)
 
     # Emergency multiplier: base from max severity, compounds with more shocks
+    # (Recalibrated 2026-03: old values 2.5/1.8/1.3 with 30% compounding
+    #  produced unrealistic 4x multipliers that blew through PSX circuit breakers)
     if max_severity >= 3.0:
-        base_multiplier = 2.5
-    elif max_severity >= 2.0:
         base_multiplier = 1.8
+    elif max_severity >= 2.0:
+        base_multiplier = 1.4
     else:
-        base_multiplier = 1.3
+        base_multiplier = 1.15
 
-    # Compound: each additional shock adds 30% of base
-    emergency_multiplier = base_multiplier * (1.0 + 0.3 * max(0, num_shocks - 1))
+    # Compound: each additional shock adds 15% of base (was 30%)
+    emergency_multiplier = base_multiplier * (1.0 + 0.15 * max(0, num_shocks - 1))
 
     # Modulate by trajectory:
     #   ceasefire   → halve the multiplier (recovery incoming)
@@ -947,7 +999,7 @@ def detect_geopolitical_shocks(
     elif traj == "escalating":
         emergency_multiplier *= 1.2
 
-    emergency_multiplier = min(emergency_multiplier, 4.0)  # hard cap
+    emergency_multiplier = min(emergency_multiplier, 2.5)  # hard cap (was 4.0)
 
     # Shock events decay faster than normal mode.
     # Ceasefire/de-escalation uses the shortest half-life (panic fades quickest).
@@ -1215,11 +1267,48 @@ def _downstream_reason_for_sector(sector: str) -> str:
     return "Downstream sector vulnerability is being treated as a geopolitical headwind."
 
 
+def _has_ticker_specific_positive(news_items: List[Dict], symbol: str) -> bool:
+    """Check for ticker-specific positive headlines (production, discovery, output boost)."""
+    sym = symbol.upper()
+    positive_terms = [
+        "discovery", "discovered", "finds oil", "finds gas", "new well",
+        "production increase", "output boost", "output increase", "record production",
+        "reserves upgrade", "exploration success",
+    ]
+    for item in news_items or []:
+        text = " ".join([
+            str(item.get("title", "")),
+            str(item.get("description", "")),
+        ]).lower()
+        if sym.lower() in text or sym in str(item.get("title", "")):
+            if any(term in text for term in positive_terms):
+                return True
+    return False
+
+
+def _assess_upstream_evidence_quality(
+    crude_confirmed: bool,
+    domestic_confirmed: bool,
+    ticker_confirmed: bool,
+    shock_detected: bool,
+) -> str:
+    """Assess evidence quality for upstream tailwind: 'good', 'limited', or 'weak'."""
+    if crude_confirmed and (domestic_confirmed or ticker_confirmed):
+        return "good"
+    if crude_confirmed or (domestic_confirmed and ticker_confirmed):
+        return "limited"
+    if shock_detected and (domestic_confirmed or ticker_confirmed):
+        return "limited"
+    return "weak"
+
+
 def build_geo_interpretation(
     news_items: List[Dict],
     geo_features: Optional[Dict[str, float]] = None,
     shock_data: Optional[Dict] = None,
     symbol: Optional[str] = None,
+    crude_data: Optional[Dict[str, float]] = None,
+    stock_health: Optional[Dict[str, float]] = None,
 ) -> Dict[str, object]:
     """Build sector interpretation metadata shared by UI and geo overlay math."""
     interpretation = default_geo_interpretation(enabled=True)
@@ -1262,15 +1351,30 @@ def build_geo_interpretation(
         if _has_positive_oil_context(text):
             positive_oil_context = True
 
+    # ----- A5: upstream tailwind confirmation gate -----
+    # Crude confirmation from market data (oil actually rising)
+    crude = crude_data or {}
+    oil_change_pct = float(crude.get("oil_change_pct", 0.0) or 0.0)
+    oil_trend_pct = float(crude.get("oil_trend_pct", 0.0) or 0.0)
+    crude_confirmed = oil_change_pct >= 2.0 or oil_trend_pct >= 4.0
+
+    # Domestic / ticker-specific confirmation
+    domestic_confirmed = fuel_hike_detected or circular_relief_detected
+    ticker_confirmed = _has_ticker_specific_positive(news_items, symbol_upper)
+
+    upstream_evidence = _assess_upstream_evidence_quality(
+        crude_confirmed, domestic_confirmed, ticker_confirmed, shock_detected,
+    )
+
+    # Gate: require cross-market crude confirmation PLUS at least one domestic/ticker signal
+    # Generic war/bomb keywords alone are NOT sufficient
     bullish_for_upstream = (
         symbol_upper in UPSTREAM_EP_SYMBOLS
-        and energy >= 0.50
-        and (
-            shock_detected
-            or overlap >= 0.25
-            or positive_oil_context
-            or fuel_hike_detected
-        )
+        and shock_detected
+        and energy >= 0.60  # raised from 0.50
+        and crude_confirmed
+        and (domestic_confirmed or ticker_confirmed)
+        and upstream_evidence != "weak"
     )
 
     tailwind_score = _clamp01(
@@ -1413,6 +1517,8 @@ def build_geopolitical_daily_adjustments(
     symbol: Optional[str] = None,
     shock_data: Optional[Dict] = None,
     interpretation: Optional[Dict[str, object]] = None,
+    enable_ai_blend: bool = True,
+    stock_health: Optional[Dict[str, float]] = None,
 ) -> Dict[str, object]:
     """
     Build day-indexed geo adjustments compatible with apply_adjustments_to_predictions.
@@ -1443,6 +1549,15 @@ def build_geopolitical_daily_adjustments(
                 "evidence_quality": "weak",
                 "matched_patterns": [],
                 "shock_reason": "No geopolitical shock detected",
+                "deterministic_day1_pct": 0.0,
+                "ai_trajectory_day1_pct": 0.0,
+                "blended_day1_pct": 0.0,
+                "deterministic_day7_pct": 0.0,
+                "ai_trajectory_day7_pct": 0.0,
+                "blended_day7_pct": 0.0,
+                "blend_weight": 0.0,
+                "dominant_driver": "deterministic",
+                "direction_conflict": False,
                 "methodology": "Deterministic geo risk post-processing (empty horizon)",
             },
         }
@@ -1492,10 +1607,34 @@ def build_geopolitical_daily_adjustments(
     risk_score = max(-1.0, min(1.0, risk_score))
     volume_multiplier = 0.5 + (0.5 * volume)
 
-    # Widen caps during shocks: e.g. -0.05 * 2.5 = -0.125 (12.5% max single-day drop)
+    trajectory = shock.get("trajectory", {}) if isinstance(shock, dict) else {}
+    llm_assessment = trajectory.get("llm_assessment", {}) if isinstance(trajectory, dict) else {}
+    trajectory_score = float(trajectory.get("trajectory_score", 0.0) or 0.0) if isinstance(trajectory, dict) else 0.0
+    trajectory_confidence = _clamp01(float(trajectory.get("confidence", 0.0) or 0.0)) if isinstance(trajectory, dict) else 0.0
+    ceasefire_probability = _clamp01(float(llm_assessment.get("ceasefire_probability", 0.0) or 0.0)) if isinstance(llm_assessment, dict) else 0.0
+    market_impact_pct = float(llm_assessment.get("market_impact_pct", 0.0) or 0.0) if isinstance(llm_assessment, dict) else 0.0
+
+    ai_blend_enabled = bool(enable_ai_blend)
+    ai_base_adjustment = market_impact_pct / 100.0 if math.isfinite(market_impact_pct) else 0.0
+    if abs(ai_base_adjustment) < 1e-9 and abs(trajectory_score) > 1e-9:
+        # Fallback from trajectory score when LLM impact is missing.
+        ai_base_adjustment = (trajectory_score / 3.0) * 0.02
+    ai_base_adjustment *= (0.90 + (0.40 * ceasefire_probability))
+    ai_base_adjustment = max(-0.12, min(0.12, ai_base_adjustment))
+
+    if ai_blend_enabled and abs(ai_base_adjustment) > 1e-9:
+        blend_weight = max(0.15, min(0.60, 0.20 + (0.40 * trajectory_confidence)))
+    else:
+        blend_weight = 0.0
+    ai_cap_ratio = 0.35 if shock_detected else 0.60
+    ai_half_life = max(3.0, half_life * 0.70)
+
+    # A4: sub-linear cap scaling — sqrt(EM) instead of linear EM
+    em_cap_factor = math.sqrt(emergency_multiplier)
+
     if bullish_for_upstream:
-        lower_cap = -0.02 * emergency_multiplier
-        upper_cap = 0.05 * emergency_multiplier
+        lower_cap = -0.02 * em_cap_factor
+        upper_cap = 0.04 * em_cap_factor   # was 0.05
         tailwind_strength = _clamp01(
             (0.40 * tailwind_score)
             + (0.25 * cashflow_support_score)
@@ -1505,18 +1644,30 @@ def build_geopolitical_daily_adjustments(
         )
         overlay_mode = "upstream_tailwind"
     elif bearish_for_downstream:
-        lower_cap = -0.06 * emergency_multiplier
-        upper_cap = 0.01 * emergency_multiplier
+        lower_cap = -0.04 * em_cap_factor   # was -0.06
+        upper_cap = 0.01 * em_cap_factor
         tailwind_strength = 0.0
         overlay_mode = "downstream_headwind"
     else:
-        lower_cap = -0.05 * emergency_multiplier
-        upper_cap = 0.02 * emergency_multiplier
+        lower_cap = -0.035 * em_cap_factor  # was -0.05
+        upper_cap = 0.015 * em_cap_factor   # was 0.02
         tailwind_strength = 0.0
         headwind_strength = 0.0
         overlay_mode = "risk_off"
 
+    # Hard-clamp mode caps to PSX circuit breaker
+    lower_cap = max(lower_cap, -PSX_DAILY_CIRCUIT_BREAKER)
+    upper_cap = min(upper_cap, PSX_DAILY_CIRCUIT_BREAKER)
+
+    # A6: stock health dampener — attenuate upstream tailwind for weak stocks
+    _health = stock_health or {}
+    _momentum_20d = float(_health.get("momentum_20d", 0.0) or 0.0)
+    health_dampener = max(0.3, min(1.0, 1.0 + (_momentum_20d / 20.0))) if stock_health else 1.0
+
     adjustments: List[Dict] = []
+    deterministic_pct_by_day: Dict[int, float] = {}
+    ai_pct_by_day: Dict[int, float] = {}
+    blended_pct_by_day: Dict[int, float] = {}
     for day in range(1, prediction_length + 1):
         decay = 0.5 ** ((day - 1) / half_life)
         if bullish_for_upstream:
@@ -1527,7 +1678,7 @@ def build_geopolitical_daily_adjustments(
                 + (0.006 * shock_severity_score)
                 + (0.004 * fuel_hike_score)
             )
-            raw_adjustment = positive_rate * volume_multiplier * decay * emergency_multiplier
+            raw_adjustment = positive_rate * volume_multiplier * decay * emergency_multiplier * health_dampener
         elif bearish_for_downstream:
             positive_rate = 0.0
             negative_rate = (
@@ -1540,12 +1691,45 @@ def build_geopolitical_daily_adjustments(
         else:
             positive_rate = 0.0
             negative_rate = 0.0
-            raw_adjustment = -0.04 * risk_score * volume_multiplier * decay * emergency_multiplier
-        capped_adjustment = max(lower_cap, min(upper_cap, raw_adjustment))
+            # A3: softer shock boost — base rate -0.022 (was -0.04), sub-linear EM boost
+            shock_boost = min(1.70, 1.0 + 0.35 * max(0.0, emergency_multiplier - 1.0))
+            raw_adjustment = -0.022 * risk_score * volume_multiplier * decay * shock_boost
+        deterministic_adjustment = max(lower_cap, min(upper_cap, raw_adjustment))
+
+        ai_adjustment = 0.0
+        if ai_blend_enabled and blend_weight > 0.0 and abs(ai_base_adjustment) > 1e-9:
+            ai_decay = 0.5 ** ((day - 1) / ai_half_life)
+            ai_raw = ai_base_adjustment * ai_decay
+            magnitude_anchor = abs(deterministic_adjustment)
+            floor = 0.0 if shock_detected else 0.003
+            ai_cap = max(magnitude_anchor * ai_cap_ratio, floor)
+            ai_adjustment = max(-ai_cap, min(ai_cap, ai_raw)) * blend_weight
+
+        # A7: sign-flip guard — for benchmark/index symbols, AI may not flip
+        # the deterministic sign for days 1-3 (the most visible near-term days)
+        is_index = (symbol or "").upper() in BENCHMARK_INDEX_SYMBOLS
+        if is_index and day <= 3 and abs(deterministic_adjustment) > 1e-9:
+            if (deterministic_adjustment + ai_adjustment) * deterministic_adjustment < 0:
+                ai_adjustment = 0.0  # suppress AI if it would flip the sign
+
+        blended_adjustment = deterministic_adjustment + ai_adjustment
+        capped_adjustment = max(lower_cap, min(upper_cap, blended_adjustment))
+        # Final clamp: per-symbol-class day cap + PSX circuit breaker
+        capped_adjustment = _apply_symbol_class_cap(capped_adjustment, day, symbol)
         pct = capped_adjustment * 100.0
+        deterministic_pct = deterministic_adjustment * 100.0
+        ai_pct = ai_adjustment * 100.0
+
+        deterministic_pct_by_day[day] = float(deterministic_pct)
+        ai_pct_by_day[day] = float(ai_pct)
+        blended_pct_by_day[day] = float(pct)
+
         event_impacts = [
             f"geo_risk_score={risk_score:.3f}",
             f"geo_decay_day_{day}={decay:.4f}",
+            f"deterministic_pct={deterministic_pct:+.2f}",
+            f"ai_trajectory_pct={ai_pct:+.2f}",
+            f"blend_weight={blend_weight:.2f}",
         ]
         if bullish_for_upstream:
             event_impacts.append(f"upstream_tailwind={tailwind_strength:.3f}")
@@ -1568,6 +1752,9 @@ def build_geopolitical_daily_adjustments(
             {
                 "day": day,
                 "raw_adjustment": raw_adjustment,
+                "deterministic_adjustment": deterministic_adjustment,
+                "ai_trajectory_adjustment": ai_adjustment,
+                "blend_weight": round(blend_weight, 4),
                 "capped_adjustment": capped_adjustment,
                 "percentage": round(pct, 4),
                 "event_impacts": event_impacts,
@@ -1577,6 +1764,21 @@ def build_geopolitical_daily_adjustments(
     pct_values = [float(a["percentage"]) for a in adjustments]
     max_abs = max((abs(v) for v in pct_values), default=0.0)
     avg = sum(pct_values) / len(pct_values) if pct_values else 0.0
+
+    deterministic_day1 = float(deterministic_pct_by_day.get(1, 0.0))
+    ai_day1 = float(ai_pct_by_day.get(1, 0.0))
+    blended_day1 = float(blended_pct_by_day.get(1, 0.0))
+    deterministic_day7 = float(deterministic_pct_by_day.get(7, deterministic_day1))
+    ai_day7 = float(ai_pct_by_day.get(7, ai_day1))
+    blended_day7 = float(blended_pct_by_day.get(7, blended_day1))
+    direction_conflict = (
+        abs(deterministic_day1) > 1e-9
+        and abs(ai_day1) > 1e-9
+        and (deterministic_day1 * ai_day1) < 0
+    )
+    det_strength = abs(deterministic_day1) + abs(deterministic_day7)
+    ai_strength = abs(ai_day1) + abs(ai_day7)
+    dominant_driver = "deterministic" if det_strength >= ai_strength else "ai_trajectory"
 
     methodology = (
         "Deterministic geo risk post-processing with weighted risk, "
@@ -1588,6 +1790,8 @@ def build_geopolitical_daily_adjustments(
         methodology += " [UPSTREAM TAILWIND MODE]"
     elif bearish_for_downstream:
         methodology += " [DOWNSTREAM HEADWIND MODE]"
+    if blend_weight > 0.0:
+        methodology += f" [AI TRAJECTORY BLEND: weight={blend_weight:.2f}, cap_ratio={ai_cap_ratio:.2f}]"
 
     return {
         "adjustments": adjustments,
@@ -1607,6 +1811,15 @@ def build_geopolitical_daily_adjustments(
             "shock_events": shock.get("shock_events", []) if shock_detected else [],
             "matched_patterns": shock.get("matched_patterns", []),
             "shock_reason": shock.get("shock_reason", "No geopolitical shock detected"),
+            "deterministic_day1_pct": round(deterministic_day1, 4),
+            "ai_trajectory_day1_pct": round(ai_day1, 4),
+            "blended_day1_pct": round(blended_day1, 4),
+            "deterministic_day7_pct": round(deterministic_day7, 4),
+            "ai_trajectory_day7_pct": round(ai_day7, 4),
+            "blended_day7_pct": round(blended_day7, 4),
+            "blend_weight": round(blend_weight, 4),
+            "dominant_driver": dominant_driver,
+            "direction_conflict": direction_conflict,
             "methodology": methodology,
         },
     }

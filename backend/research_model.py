@@ -48,14 +48,14 @@ from sklearn.linear_model import Ridge
 
 # Local imports
 try:
-    from backend.external_features import merge_external_features
+    from backend.external_features import merge_external_features, is_oil_sector_symbol
     from backend.validated_indicators import calculate_validated_indicators, get_validated_feature_list
     from backend.sota_model import (
         wavelet_denoise_causal, detect_outliers, 
         PSXSeasonalFeatures, trend_accuracy, PYWT_AVAILABLE
     )
 except ImportError:
-    from external_features import merge_external_features
+    from external_features import merge_external_features, is_oil_sector_symbol
     from validated_indicators import calculate_validated_indicators, get_validated_feature_list
     from sota_model import (
         wavelet_denoise_causal, detect_outliers,
@@ -855,10 +855,23 @@ class PSXResearchModel:
     5. Iterated forecasting with confidence decay
     """
     
-    def __init__(self, use_wavelet: bool = True, symbol: str = None, use_returns_model: bool = True):
+    def __init__(
+        self,
+        use_wavelet: bool = True,
+        symbol: str = None,
+        use_returns_model: bool = True,
+        enable_geo_context: Optional[bool] = None,
+    ):
         self.use_wavelet = use_wavelet and PYWT_AVAILABLE
         self.symbol = symbol
         self.use_returns_model = use_returns_model
+        if enable_geo_context is None:
+            _cfg = get_runtime_config() if get_runtime_config else None
+            enable_geo_context = _cfg.enable_geo_features if _cfg else (
+                os.getenv('ENABLE_GEO_FEATURES', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+            )
+        self.enable_geo_context = bool(enable_geo_context)
+        self.include_oil_market_features = self.enable_geo_context or not is_oil_sector_symbol(self.symbol)
 
         # Core components
         self.ensemble = ResearchBackedEnsemble()
@@ -913,6 +926,7 @@ class PSXResearchModel:
                 cache_key = (
                     self.symbol,
                     self.use_wavelet,
+                    self.enable_geo_context,
                     len(df),
                     str(date_series.min()),
                     str(date_series.max()),
@@ -945,7 +959,12 @@ class PSXResearchModel:
         
         # 3. External features (MOST CRITICAL per research)
         print("3. Adding external features...")
-        df = merge_external_features(df, symbol=self.symbol)
+        df = merge_external_features(
+            df,
+            symbol=self.symbol,
+            include_asian_features=self.enable_geo_context,
+            include_oil_features=self.include_oil_market_features,
+        )
         
         # 4. Validated technical indicators
         print("4. Calculating validated indicators...")
@@ -990,11 +1009,7 @@ class PSXResearchModel:
             df['news_recency'] = 0.5
 
         # 7. Geopolitical features (flagged shadow rollout only)
-        _cfg = get_runtime_config() if get_runtime_config else None
-        enable_geo_features = _cfg.enable_geo_features if _cfg else (
-            os.getenv('ENABLE_GEO_FEATURES', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
-        )
-        if enable_geo_features and GEO_FEATURES_AVAILABLE and self.symbol:
+        if self.enable_geo_context and GEO_FEATURES_AVAILABLE and self.symbol:
             print("7. Adding geopolitical risk features...")
             try:
                 geo = get_geopolitical_features_for_symbol(self.symbol, use_cache=True)
@@ -1044,6 +1059,7 @@ class PSXResearchModel:
         exclude_cols = ['Date', 'Target', 'is_outlier', 'invalid_ohlc']
         
         feature_cols = []
+        include_oil_market_features = self.include_oil_market_features
         for col in df.columns:
             if col in exclude_cols:
                 continue
@@ -1063,7 +1079,7 @@ class PSXResearchModel:
             if (col in validated or 
                 'usdpkr' in col.lower() or 
                 'kse100' in col.lower() or
-                'oil' in col.lower() or
+                (include_oil_market_features and 'oil' in col.lower()) or
                 'gold' in col.lower() or
                 'kibor' in col.lower() or
                 'beta' in col.lower() or
@@ -1071,14 +1087,20 @@ class PSXResearchModel:
                 ('denoised' in col.lower() and not use_returns) or
                 'news_' in col.lower() or
                 'geo_' in col.lower() or
+                (self.enable_geo_context and (
+                    'nikkei' in col.lower()
+                    or 'kospi' in col.lower()
+                    or col.lower().startswith('asian_')
+                    or col.lower() == 'asian_correlation'
+                )) or
                 col in {
                     'local_fuel_price_delta_rs',
                     'local_fuel_price_shock',
                     'circular_debt_signal',
                     'energy_shock_regime',
-                    'kse_oil_interaction',
                     'kse_energy_shock_interaction',
-                }):  # Include news/geopolitical/energy-shock features
+                } or
+                (include_oil_market_features and col == 'kse_oil_interaction')):  # Include news/geopolitical/energy-shock features
                 feature_cols.append(col)
         
         self.feature_cols = feature_cols
