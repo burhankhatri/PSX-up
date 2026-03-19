@@ -2210,9 +2210,11 @@
                             onkeypress="if(event.key==='Enter') addCashBalance()">
                     </div>
                     <button type="button" class="portfolio-add-btn" onclick="addCashBalance()">Deposit</button>
-                    <button type="button" class="portfolio-add-btn" onclick="withdrawCash()" style="background:var(--accent-red, #e74c3c);">Withdraw</button>
+                    <button type="button" class="portfolio-add-btn" onclick="cashOutFunds()" style="background:var(--accent-red, #e74c3c);">Cashout</button>
                 </div>
                 <div id="ptCashError" class="portfolio-error-msg" style="display:none;"></div>
+                <div id="ptCashSuccess" class="portfolio-error-msg" style="display:none; color:var(--accent-green, #2ecc71);"></div>
+                <div style="margin-top:8px; font-size:0.78rem; color:var(--text-muted);">Cashout is deducted only from uninvested cash balance.</div>
             </div>
 
             <!-- Holdings Table -->
@@ -5897,7 +5899,9 @@
 
         function addCashBalance() {
             const errEl = document.getElementById('ptCashError');
+            const successEl = document.getElementById('ptCashSuccess');
             errEl.style.display = 'none';
+            if (successEl) successEl.style.display = 'none';
             const amount = parseFloat(document.getElementById('ptCashAmount').value);
             if (!Number.isFinite(amount) || amount <= 0) {
                 errEl.textContent = 'Please enter a valid positive amount.';
@@ -5905,13 +5909,20 @@
                 return;
             }
             ptSaveCashBalance(ptLoadCashBalance() + amount);
+            if (successEl) {
+                successEl.textContent = `Deposited PKR ${ptFmt(amount)} to available funds.`;
+                successEl.style.display = 'block';
+                setTimeout(() => { successEl.style.display = 'none'; }, 4000);
+            }
             document.getElementById('ptCashAmount').value = '';
             loadPortfolio();
         }
 
         function withdrawCash() {
             const errEl = document.getElementById('ptCashError');
+            const successEl = document.getElementById('ptCashSuccess');
             errEl.style.display = 'none';
+            if (successEl) successEl.style.display = 'none';
             const amount = parseFloat(document.getElementById('ptCashAmount').value);
             if (!Number.isFinite(amount) || amount <= 0) {
                 errEl.textContent = 'Please enter a valid positive amount.';
@@ -5925,8 +5936,17 @@
                 return;
             }
             ptSaveCashBalance(current - amount);
+            if (successEl) {
+                successEl.textContent = `Cashed out PKR ${ptFmt(amount)} from available funds.`;
+                successEl.style.display = 'block';
+                setTimeout(() => { successEl.style.display = 'none'; }, 4000);
+            }
             document.getElementById('ptCashAmount').value = '';
             loadPortfolio();
+        }
+
+        function cashOutFunds() {
+            withdrawCash();
         }
 
         // ===================================================================
