@@ -3035,12 +3035,20 @@
                 `
                 : '';
 
+            const geoReasoning = geoMeta.geo_reasoning || '';
+            const geoReasoningHtml = geoReasoning
+                ? `<div style="padding:10px 14px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:8px;margin-bottom:12px;font-size:0.78rem;color:#1e40af;line-height:1.55;">
+                    <strong>Geo Impact:</strong> ${geoReasoning}
+                   </div>`
+                : '';
+
             content.innerHTML = `
                 <div class="geo-overlay-status">
                     Status: Enabled and applied.<br>
                     Net impact: Avg shift ${avgAdjText} | Max absolute shift ${maxAdjText}
                     ${shockReason ? `<br>Shock reason: ${shockReason}` : ''}
                 </div>
+                ${geoReasoningHtml}
                 ${interpretationHtml}
                 ${whyGeoHtml}
                 ${catalystBreakdownHtml}

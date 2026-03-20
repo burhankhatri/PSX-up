@@ -628,6 +628,7 @@ def analyze_with_ai(
         nikkei = geo_macro_context.get('nikkei', {})
         kospi = geo_macro_context.get('kospi', {})
         crude = geo_macro_context.get('crude', {})
+        global_geo = geo_macro_context.get('global_geo', {})
         geo_macro_section = (
             "\n\n🌏 GEO MACRO CONTEXT (use only as additional context, not a guaranteed signal):\n"
             f"- Nikkei 225: {nikkei.get('change_pct', 'n/a')}% (status: {nikkei.get('status', 'unknown')})\n"
@@ -635,6 +636,29 @@ def analyze_with_ai(
             f"- Crude (CL=F): close={crude.get('oil_close', 'n/a')}, "
             f"change={crude.get('oil_change_pct', 'n/a')}%, trend20d={crude.get('oil_trend_pct', 'n/a')}%\n"
         )
+
+        # Add global geopolitical headlines for LLM context
+        if global_geo and global_geo.get('severity'):
+            severity = global_geo.get('severity', 'UNKNOWN')
+            severity_desc = global_geo.get('severity_description', '')
+            headlines = global_geo.get('top_headlines', [])
+            oil_war = global_geo.get('oil_war_overlap', 0)
+            geo_macro_section += (
+                f"\n🌍 GLOBAL GEOPOLITICAL SITUATION: {severity} — {severity_desc}\n"
+                f"- Oil-conflict overlap signals: {oil_war}\n"
+            )
+            if headlines:
+                geo_macro_section += "- KEY INTERNATIONAL HEADLINES (from Reuters, Al Jazeera, BBC, CNBC):\n"
+                for h in headlines[:8]:
+                    geo_macro_section += f"  • {h}\n"
+            geo_macro_section += (
+                "\nIMPORTANT: These global events DIRECTLY impact PSX stocks:\n"
+                "- Energy stocks (OGDC, PPL, PSO, POL, MARI) benefit from oil price surges\n"
+                "- Import-dependent sectors (autos, cement) suffer from higher energy costs\n"
+                "- Pakistan is a net oil importer with ~20 days reserves\n"
+                "- Strait of Hormuz disruptions directly threaten Pakistan's energy supply\n"
+                "- Factor these events into your analysis with appropriate weight\n"
+            )
 
     prompt = f"""You are a BALANCED Pakistani stock market analyst. Today's date is {current_date}.
 
@@ -753,12 +777,13 @@ def fallback_analysis(news_items: List[Dict]) -> Dict:
 # ============================================================================
 
 def _build_geo_prompt_context() -> Dict[str, Any]:
-    """Build geo macro context payload from Asian markets + crude oil."""
+    """Build geo macro context payload from Asian markets + crude oil + global geopolitical news."""
     context: Dict[str, Any] = {
         'available': False,
         'nikkei': {},
         'kospi': {},
         'crude': {},
+        'global_geo': {},
     }
     try:
         try:
@@ -782,6 +807,27 @@ def _build_geo_prompt_context() -> Dict[str, Any]:
         context['available'] = bool(context['nikkei'] or context['kospi'] or context['crude'])
     except Exception:
         context['available'] = False
+
+    # Add global geopolitical news summary
+    try:
+        try:
+            from backend.global_news_fetcher import get_global_news_summary
+        except ImportError:
+            from global_news_fetcher import get_global_news_summary
+        global_summary = get_global_news_summary()
+        if global_summary.get("available"):
+            context["global_geo"] = {
+                "severity": global_summary.get("severity", "UNKNOWN"),
+                "severity_description": global_summary.get("severity_description", ""),
+                "headline_count": global_summary.get("headline_count", 0),
+                "oil_war_overlap": global_summary.get("oil_war_overlap_count", 0),
+                "categories": global_summary.get("categories", {}),
+                "top_headlines": global_summary.get("top_headlines", [])[:10],
+            }
+            context['available'] = True
+    except Exception:
+        pass
+
     return context
 
 

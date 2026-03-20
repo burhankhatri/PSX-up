@@ -626,12 +626,25 @@ def llm_assess_trajectory(
 
     current_date = datetime.now().strftime("%Y-%m-%d")
 
+    # Prioritize recent global geo news so the LLM sees international events
+    # (Iran war, oil surges, Hormuz blockade) instead of just local Pakistani news
+    recent_global = _filter_recent_items(
+        [i for i in news_items if i.get("is_global_geo")], limit=12
+    )
+    recent_local = _filter_recent_items(
+        [i for i in news_items if not i.get("is_global_geo")], limit=12
+    )
+    # Merge: global first (critical international context), then local
+    prioritized = recent_global + recent_local
+    if not prioritized:
+        prioritized = news_items[:20]  # fallback
+
     # Format news headlines with dates
     headlines = []
     fuel_hike_detected = False
     circular_relief_detected = False
     energy_supply_detected = False
-    for item in news_items[:20]:
+    for item in prioritized:
         date = item.get("date") or item.get("published") or "unknown"
         source = item.get("source_name") or item.get("source") or "Unknown"
         title = item.get("title") or ""
@@ -689,6 +702,13 @@ TASK: Produce a JSON assessment with these fields:
 
 6. "reasoning" (string): 2-3 sentence explanation of your assessment.
 
+7. "ticker_impact_summary" (string): A concise 1-sentence explanation of the SPECIFIC impact on THIS
+   ticker's stock price. Include concrete data points when available (oil prices, % changes, specific
+   events). Examples:
+   - "Oil at $108/bbl (+40% from Iran war) is STRONGLY BULLISH for OGDC as upstream E&P revenue surges"
+   - "Strait of Hormuz 95% blocked threatens Pakistan oil imports — BEARISH for auto sector margins"
+   - "Ceasefire talks progressing — PSX recovery likely after 11,000-point crash"
+
 IMPORTANT:
 - Focus on events DIRECTLY affecting Pakistan: wars involving Pakistan, India-Pakistan tensions,
   regional conflicts (Afghanistan, Iran, Middle East), sanctions, IMF/economic crises.
@@ -697,6 +717,10 @@ IMPORTANT:
 - If news shows the crash has ALREADY happened, assess whether recovery is likely.
 - Be calibrated: a distant conflict (e.g., Russia-Ukraine) is severity 2-3 for PSX,
   a direct Pakistan war is severity 8-10.
+- ALWAYS tie your reasoning to the SPECIFIC TICKER being analyzed.
+- For upstream E&P tickers (OGDC, PPL, POL, MARI), explain WHY oil surges are bullish (revenue).
+- For downstream/import-dependent tickers (autos, cement, steel), explain WHY energy shocks are bearish (costs).
+- Include concrete numbers when available (oil price, % changes, casualties, ships blocked).
 
 Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
 
@@ -709,7 +733,7 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=800,
+            max_tokens=1024,
         )
         raw = completion.choices[0].message.content.strip()
         result = json.loads(raw)
@@ -724,6 +748,7 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
         result["market_impact_pct"] = float(result.get("market_impact_pct", 0.0))
         result["key_events"] = result.get("key_events", [])[:5]
         result["reasoning"] = str(result.get("reasoning", ""))[:500]
+        result["ticker_impact_summary"] = str(result.get("ticker_impact_summary", ""))[:300]
         result["llm_source"] = "groq/llama-3.3-70b"
 
         logger.info(f"LLM trajectory assessment: {result['trajectory']} (severity={result['severity']}, "
@@ -785,7 +810,9 @@ def assess_conflict_trajectory(
     seen_resolution: set = set()
     seen_escalation: set = set()
 
-    for item in news_items[:40]:
+    # Filter to recent news only — prevents stale conflict signals
+    recent_items = _filter_recent_items(news_items, limit=40)
+    for item in recent_items:
         title = (item.get("title") or "").lower()
         desc = (item.get("description") or item.get("summary") or "").lower()
         text = f"{title} {desc}"
@@ -941,7 +968,9 @@ def detect_geopolitical_shocks(
     shock_events: List[Dict] = []
     seen_patterns: set = set()
 
-    for item in news_items[:40]:
+    # Filter to recent news only — prevents stale shocks from old cached articles
+    recent_items = _filter_recent_items(news_items, limit=60)
+    for item in recent_items:
         title = (item.get("title") or "").lower()
         desc = (item.get("description") or item.get("summary") or "").lower()
         text = f"{title} {desc}"
@@ -1032,6 +1061,41 @@ def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, float(x)))
 
 
+def _article_age_weight(item: Dict) -> float:
+    """Compute recency weight for a news article.
+
+    Returns:
+        1.0 for today/yesterday (full weight)
+        Exponential decay with 2-day half-life for older articles
+        0.0 for articles older than 7 days (hard cutoff)
+        0.5 for articles with unknown/unparseable dates
+    """
+    date_str = (item.get("date") or "")[:10]
+    if not date_str:
+        return 0.5  # unknown date → half weight
+    try:
+        article_date = datetime.strptime(date_str, "%Y-%m-%d")
+        age_days = (datetime.now() - article_date).days
+    except (ValueError, TypeError):
+        return 0.5
+    if age_days < 0:
+        return 1.0  # future date (clock skew) → full weight
+    if age_days > 7:
+        return 0.0  # hard cutoff
+    if age_days <= 1:
+        return 1.0  # today/yesterday: full weight
+    # Exponential decay: half-life of 2 days
+    return max(0.1, math.exp(-age_days / 2.0))
+
+
+def _filter_recent_items(items: List[Dict], limit: int = 40) -> List[Dict]:
+    """Filter news items to recent ones only (age_weight > 0), with fallback."""
+    recent = [i for i in items if _article_age_weight(i) > 0]
+    if not recent:
+        return items[:limit]  # fallback: use what we have
+    return recent[:limit]
+
+
 def _term_score(text: str, terms: List[str], amplifier: float = 1.0) -> float:
     """Score text against a term list.  Normalise by adjusted denominator."""
     if not text:
@@ -1045,7 +1109,7 @@ def _compute_energy_war_overlap(news_items: List[Dict]) -> float:
     has_energy = False
     has_regional = False
 
-    for item in news_items[:40]:
+    for item in _filter_recent_items(news_items, limit=80):
         title = (item.get("title") or "").lower()
         desc = (item.get("description") or item.get("summary") or "").lower()
         text = f"{title} {desc}"
@@ -1079,28 +1143,59 @@ def get_geopolitical_features_from_news(
     news_items: List[Dict],
     symbol: Optional[str] = None,
 ) -> Dict[str, float]:
-    """Compute geo-risk features from a list of news dicts (must have 'title')."""
+    """Compute geo-risk features from a list of news dicts (must have 'title').
+
+    Global geopolitical news items (marked with is_global_geo=True) get extra
+    weight since they represent major international events (wars, oil surges,
+    Hormuz blockades) that the local Pakistani sources miss.
+    """
     if not news_items:
         return neutral_geopolitical_features()
 
-    text = " ".join((item.get("title") or "").lower() for item in news_items[:40])
-    volume = _clamp01(len(news_items) / 20.0)
+    # Separate global geo news (international) from local news
+    # Filter to recent articles only (last 7 days) — prevents stale news pollution
+    global_items = _filter_recent_items(
+        [i for i in news_items if i.get("is_global_geo")], limit=50
+    )
+    local_items = _filter_recent_items(
+        [i for i in news_items if not i.get("is_global_geo")], limit=40
+    )
+
+    # Build text corpus — global headlines get included twice for extra weight
+    local_text = " ".join((item.get("title") or "").lower() for item in local_items)
+    global_titles = " ".join((item.get("title") or "").lower() for item in global_items)
+    global_descs = " ".join(
+        (item.get("description") or "").lower() for item in global_items[:30]
+    )
+    # Global news gets double-weighted by concatenating titles + descriptions
+    text = f"{local_text} {global_titles} {global_titles} {global_descs}"
+
+    total_count = len(global_items) + len(local_items)
+    global_count = len(global_items)
+    volume = _clamp01(total_count / 20.0)
 
     sector = SYMBOL_SECTOR.get((symbol or "").upper(), "")
     amplifiers = SECTOR_AMPLIFIERS.get(sector, {})
 
+    # If there are significant global geo items, boost amplifiers further
+    global_boost = 1.0
+    if global_count >= 10:
+        global_boost = 1.3  # Major global event detected
+    elif global_count >= 5:
+        global_boost = 1.15
+
     features = {
         "geo_conflict_risk": _term_score(
-            text, GEO_TERMS["conflict"], amplifiers.get("conflict", 1.0)
+            text, GEO_TERMS["conflict"], amplifiers.get("conflict", 1.0) * global_boost
         ),
         "geo_energy_supply_risk": _term_score(
-            text, GEO_TERMS["energy_supply"], amplifiers.get("energy_supply", 1.0)
+            text, GEO_TERMS["energy_supply"], amplifiers.get("energy_supply", 1.0) * global_boost
         ),
         "geo_regional_tension": _term_score(
-            text, GEO_TERMS["regional"], amplifiers.get("regional", 1.0)
+            text, GEO_TERMS["regional"], amplifiers.get("regional", 1.0) * global_boost
         ),
         "geo_global_risk_off": _term_score(
-            text, GEO_TERMS["risk_off"], amplifiers.get("risk_off", 1.0)
+            text, GEO_TERMS["risk_off"], amplifiers.get("risk_off", 1.0) * global_boost
         ),
         "geo_news_volume": volume,
         "geo_energy_war_overlap": _compute_energy_war_overlap(news_items),
@@ -1117,6 +1212,15 @@ def get_geopolitical_features_from_news(
                 + (0.35 * features["geo_regional_tension"]),
             ),
         )
+
+    if global_count > 0:
+        logger.info(
+            f"🌍 Geo features boosted by {global_count} global news items "
+            f"(boost={global_boost:.2f}): conflict={features['geo_conflict_risk']:.2f}, "
+            f"energy={features['geo_energy_supply_risk']:.2f}, "
+            f"overlap={features['geo_energy_war_overlap']:.2f}"
+        )
+
     return features
 
 
@@ -1309,6 +1413,7 @@ def build_geo_interpretation(
     symbol: Optional[str] = None,
     crude_data: Optional[Dict[str, float]] = None,
     stock_health: Optional[Dict[str, float]] = None,
+    asian_market_data: Optional[Dict] = None,
 ) -> Dict[str, object]:
     """Build sector interpretation metadata shared by UI and geo overlay math."""
     interpretation = default_geo_interpretation(enabled=True)
@@ -1377,6 +1482,27 @@ def build_geo_interpretation(
         and upstream_evidence != "weak"
     )
 
+    # ----- PAKISTAN PARADOX OVERRIDE GATE -----
+    # Pakistan is a NET OIL IMPORTER. During macro crashes, even upstream
+    # E&P stocks (OGDC, PPL) fall because the entire market collapses.
+    # When Asian markets signal severe risk-off, BLOCK upstream tailwind.
+    _asian = asian_market_data or {}
+    _asian_risk_off = float(_asian.get("asian_risk_off_signal", 0.0) or 0.0)
+    _asian_crash_severity = str(_asian.get("crash_severity", "none") or "none")
+    _market_crash_override = False
+
+    if bullish_for_upstream:
+        if _asian_risk_off >= 1.0:
+            # HARD GATE: Both Nikkei AND KOSPI crashing >= 2% — ALWAYS block tailwind
+            bullish_for_upstream = False
+            _market_crash_override = True
+        elif _asian_risk_off >= 0.5:
+            # SOFT GATE: One major Asian index crashing >= 2%
+            # Block unless BOTH domestic AND ticker confirmation exist
+            if not (domestic_confirmed and ticker_confirmed):
+                bullish_for_upstream = False
+                _market_crash_override = True
+
     tailwind_score = _clamp01(
         (0.45 * energy)
         + (0.20 * overlap)
@@ -1420,6 +1546,8 @@ def build_geo_interpretation(
             "vulnerability_profile": {},
             "evidence_quality": "good" if fuel_hike_detected or circular_relief_detected else "weak",
             "reason": ". ".join(reasons),
+            "market_crash_override": _market_crash_override,
+            "asian_crash_severity": _asian_crash_severity,
         }
 
     vulnerability = DOWNSTREAM_VULNERABILITY.get(symbol_upper)
@@ -1503,11 +1631,20 @@ def build_geo_interpretation(
         interpretation["fuel_hike_magnitude_rs"] = round(max_fuel_hike_rs, 2)
         interpretation["fuel_hike_score"] = round(fuel_hike_score, 2)
         interpretation["circular_debt_relief_score"] = round(circular_debt_relief_score, 2)
-    interpretation["reason"] = (
-        interpretation["reason"]
-        if vulnerability
-        else "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
-    )
+    interpretation["market_crash_override"] = _market_crash_override
+    interpretation["asian_crash_severity"] = _asian_crash_severity
+    if _market_crash_override:
+        interpretation["reason"] = (
+            f"PAKISTAN PARADOX OVERRIDE: upstream tailwind blocked. "
+            f"Asian crash severity={_asian_crash_severity} (risk_off={_asian_risk_off:.2f}). "
+            f"Pakistan is a net oil importer — market-wide crash overrides sector tailwind."
+        )
+    else:
+        interpretation["reason"] = (
+            interpretation["reason"]
+            if vulnerability
+            else "Standard geo interpretation: conflict and supply stress are treated as broad market risk."
+        )
     return interpretation
 
 
@@ -1519,6 +1656,7 @@ def build_geopolitical_daily_adjustments(
     interpretation: Optional[Dict[str, object]] = None,
     enable_ai_blend: bool = True,
     stock_health: Optional[Dict[str, float]] = None,
+    asian_market_data: Optional[Dict] = None,
 ) -> Dict[str, object]:
     """
     Build day-indexed geo adjustments compatible with apply_adjustments_to_predictions.
@@ -1632,9 +1770,20 @@ def build_geopolitical_daily_adjustments(
     # A4: sub-linear cap scaling — sqrt(EM) instead of linear EM
     em_cap_factor = math.sqrt(emergency_multiplier)
 
+    # Asian market cap dampener — belt-and-suspenders even if gate fires
+    _asian_adj = asian_market_data or {}
+    _asian_risk_off_adj = float(_asian_adj.get("asian_risk_off_signal", 0.0) or 0.0)
+    asian_cap_dampener = 1.0
+    if _asian_risk_off_adj >= 1.0:
+        asian_cap_dampener = 0.30    # severe: slash bullish cap to 30%
+    elif _asian_risk_off_adj >= 0.5:
+        asian_cap_dampener = 0.55    # moderate: slash to 55%
+    elif _asian_risk_off_adj >= 0.25:
+        asian_cap_dampener = 0.80    # mild: slight reduction
+
     if bullish_for_upstream:
         lower_cap = -0.02 * em_cap_factor
-        upper_cap = 0.04 * em_cap_factor   # was 0.05
+        upper_cap = 0.04 * em_cap_factor * asian_cap_dampener
         tailwind_strength = _clamp01(
             (0.40 * tailwind_score)
             + (0.25 * cashflow_support_score)

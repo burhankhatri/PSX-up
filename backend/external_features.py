@@ -540,6 +540,11 @@ def fetch_asian_market_realtime() -> Dict:
         result["crash_warning"] = False
         result["warning_message"] = ""
 
+    # Compute average return for bidirectional signal
+    nk_change = result.get("nikkei", {}).get("change_pct") or 0
+    ks_change = result.get("kospi", {}).get("change_pct") or 0
+    result["asian_avg_return"] = round((nk_change + ks_change) / 2.0, 2)
+
     # Cache result
     if _asian_realtime_payload_usable(result):
         try:

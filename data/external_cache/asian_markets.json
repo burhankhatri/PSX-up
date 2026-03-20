@@ -1,21 +1,22 @@
 {
   "nikkei": {
-    "current": 53741.82,
+    "current": 53372.53,
     "prev_close": 55239.4,
-    "change_pct": -2.71,
+    "change_pct": -3.38,
     "open_gap_pct": -1.72,
-    "status": "open"
+    "status": "closed"
   },
   "kospi": {
-    "current": 5768.09,
-    "prev_close": 5925.03,
-    "change_pct": -2.65,
-    "open_gap_pct": -2.76,
-    "status": "open"
+    "current": 5781.2,
+    "prev_close": 5763.22,
+    "change_pct": 0.31,
+    "open_gap_pct": 0.87,
+    "status": "closed"
   },
-  "asian_risk_off_signal": 1.0,
+  "asian_risk_off_signal": 0.5,
   "crash_warning": true,
-  "crash_severity": "severe",
-  "warning_message": "Both Nikkei (-2.7%) & KOSPI (-2.6%) crashed. Regional sell-off risk elevated for PSX.",
-  "checked_at": "2026-03-19T06:40:47.735119"
+  "crash_severity": "moderate",
+  "warning_message": "Nikkei dropped 3.4%. Regional sell-off risk for PSX.",
+  "checked_at": "2026-03-21T02:53:42.071484",
+  "asian_avg_return": -1.53
 }

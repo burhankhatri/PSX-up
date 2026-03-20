@@ -1,0 +1,916 @@
+{
+  "cached_at": "2026-03-21T02:45:58.909642",
+  "article_count": 50,
+  "articles": [
+    {
+      "title": "\u2018Cowards\u2019: Trump slams NATO over lack of support in US\u2013Israel war on Iran",
+      "url": "https://www.aljazeera.com/news/2026/3/20/cowards-trump-slams-nato-over-lack-of-support-in-us-israel-war-on?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "Trump is calling for US allies to help guarantee shipping through the Strait of Hormuz as NATO relocates Iraq personnel.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 11,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Strait of Hormuz: Which ships are passing through? - BBC",
+      "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1YWkRzNm9FbkljSllZWlAyX3ZUNUZpenNwdXZhaXVOcUF0cXl1d09PM01jVVBBdUpHMHJiSDNGMXZUdnBxUndUV2doUnpVaEQ1VW1tVUc0bUF2Zw?oc=5",
+      "source": "Google News",
+      "description": "Strait of Hormuz: Which ships are passing through?&nbsp;&nbsp;BBCA Few Ships Are Trickling Through the Strait of Hormuz With Iran\u2019s Approval&nbsp;&nbsp;The New York TimesAbout 90 ships cross the Strait of Hormuz as Iran exports millions of barrels of oil despite the war&nbsp;&nbsp;AP NewsIran allows handful of favoured ships through Strait of Hormuz&nbsp;&nbsp;Financial TimesTraffic is trickling through Strait of Hormuz: Who's moving and who's stranded&nbsp;&nbsp;CNBCAn alternative route to Stra",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 11,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Iran War Live Updates: U.S. Steps Up Efforts to Clear Strait of Hormuz as Oil Prices Remain High - The New York Times",
+      "url": "https://news.google.com/rss/articles/CBMickFVX3lxTFBQVWE4NTYyRFZ3QzNicGdjZ1JxdGlyQ1JHS0RkQW1xZWdpZVVaTjhrUW4tUGVXVzlfTGkxS3ljMVFTMHVFMjJfaXVWY2o2a01Kd3hJaHRUNk9hcloyX3FLc09mN1h2V1g5a2ZPekprU2dBdw?oc=5",
+      "source": "Google News",
+      "description": "Iran War Live Updates: U.S. Steps Up Efforts to Clear Strait of Hormuz as Oil Prices Remain High&nbsp;&nbsp;The New York Times",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 10,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Energy prices surge as Iran attack on Qatar LNG plant threatens long-term exports - Virginia Business",
+      "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE5kZHBnMkE4Xy0tMVNySm9WLUY0bFJjSmlYSHVnX2stTmQyY0kyQTRRNVE1alluSVBEQ0ZTZ0JTblg0WUF2YzNMV0ZTNS1SME81OUhGZ19TQmQ5aE5KdnlnMXN3dGRVckoyV21EbEdLakZCSWNUOU00eGhDRQ?oc=5",
+      "source": "Google News",
+      "description": "Energy prices surge as Iran attack on Qatar LNG plant threatens long-term exports&nbsp;&nbsp;Virginia Business",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 10,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Brent oil prices could surge past record high if Iran war disruption persists, Goldman says - CNBC",
+      "url": "https://news.google.com/rss/articles/CBMieEFVX3lxTE9TX0ZFTnRnd2w4TXYxQVVmUWRONmlVNmtQVFBhOTZkRWNzd2Nad1IxQnNDLVo0MzdYVS1KdEZZTm1hQWVxcXlCbVRCdWZXY3JVNXVjaDdMck5ZcU9kTlphbC1hRTMtWG1BbnZPd0hUbnVZY1dTRXktbw?oc=5",
+      "source": "Google News",
+      "description": "Brent oil prices could surge past record high if Iran war disruption persists, Goldman says&nbsp;&nbsp;CNBC",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 10,
+      "geo_categories": [
+        "markets",
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Will Brent crude oil price stay above $100 for years amid US-Iran war? Why Goldman Sachs oil price forecas - The Economic Times",
+      "url": "https://news.google.com/rss/articles/CBMi5AJBVV95cUxNblFDVWNILURQVi1vOTZ4c0VwRVdzd2h4TVAya1l0LVdIMHY4UGZnalBHaWNnWFc2Rk5yVm0zbTJHbDltRTRwV2d6c2hrVlpEWXVkb2tmYkxVUXhTeS1kVE9fYW4xUXAyY3dPRHZFWWg4aXdqeTVaM3dZYjVCeFJoWUVVdkRGTmdXMmlLTmJqQ1Q4dC1GUHNmS093RmJfakllckJfQk9jRlhKMkF1TkZMRy1raG9xVkdZT3FMd1ZsV2xXa1d3YzRnVVlUTEhyajFKc3VwR2h6MlVhRWFiZWtSUG5EQWlyNjVWRnJSNWgwaGY5bV9XdVNBOXY1NlVIOWVielB1WURadVhOcEdzTUkxekVIZXZpN0ZVZV8wZ0otRXFoakJmTEY5Tks0Mk1iSWNLN0JGb25vdUxpYXlxcHU5LXlzRXNDTDdPbXlreDA0VnJ3UGgxMVVjVk9sWUpCbHdQanRpetIB6gJBVV95cUxOd0hnbEVhX3VBYXRia01QRTI5dWRZYzlxUjJyS1Q1SW45UjdqTFM3S29Oc2lzZ2Nkc0ZZQ2ZESDVoS0tCbU1yV3VOVWRvVzBobWo1enNuVFBfVlNDbF8wdTcxZEhJNDZ0VWdRRXJOUkVPLVdoakZqY3FQRERyaDVVcEVyWUE1M3ZoTnZSUlBPTExqZ2NnUDZNSVdhdnhVeHNYM3Z6RG8xcEpIY20tempJVzRZZFVOclgwRGZ5QkFZa21mR2xrUjl4MDlaeFFXUGcxU3V6NjhwMXR2V2dicWJEeVh3NTk0SEVEemlqQlRoVUNXbFZYeVJieWRqVjVQMlhjRWpkVTRQTWZmRVRWbFhCTVFmazZnZ3lUYnFWc3E5SXN2NkNtUTduZ1FDeXBOQTJnUU5EUmF5cGVnMmlJem9ONWhmVXdVUTdDbzJqNnRxcDRVT2hNWVBXWFlSaFFldk51VGdOUEpsSHZOZw?oc=5",
+      "source": "Google News",
+      "description": "Will Brent crude oil price stay above $100 for years amid US-Iran war? Why Goldman Sachs oil price forecas&nbsp;&nbsp;The Economic Times",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 10,
+      "geo_categories": [
+        "markets",
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Natural Gas, WTI Oil, Brent Oil Forecasts \u2013 Oil Rallies As Iran Rejects Negotiations On The Strait Of Hormuz - FXEmpire",
+      "url": "https://news.google.com/rss/articles/CBMi6wFBVV95cUxQOEN0ckl5eXMwMEp1NHI3ODBBblFkclNzTHRMbF9WNXB4UEtCNXBLNElKMndLRGEtWG5RMnJJYml3dDFKcVk0VTNnUFFSMi1UQUVjVGJGWm9JbWJQX05tb294bmtfUnE4SjFmWTNhY3R6V0ZWRW5BcVpBRk5wTWd2Qm5PT0U4NXpqR3ZBbmFWdEE0a0FzY2c1aDNpOWVmeVJfMUdod2hTbkZ5UG1NWDc1eUxIUWhEZFh2eEdDUTUtMk5TbVlON20ybWJ3MlRHemFTTXA4ci10bzdrSmMwQ1VDVlpwS1pNVkcwdHhJ?oc=5",
+      "source": "Google News",
+      "description": "Natural Gas, WTI Oil, Brent Oil Forecasts \u2013 Oil Rallies As Iran Rejects Negotiations On The Strait Of Hormuz&nbsp;&nbsp;FXEmpire",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 10,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "US easing ban on Iranian oil would signal \u2018beginning of the end of war\u2019",
+      "url": "https://www.aljazeera.com/video/newsfeed/2026/3/20/us-easing-ban-on-iranian-oil-would-signal-beginning-of-the-end-of?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "The US says it is considering removing sanctions on Iranian oil stranded on tankers at sea.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil prices jump on report US to send more troops to Middle East - Yahoo Finance UK",
+      "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxNS0R5M3oxMURTTEl2b21XamlnSGpFQmVPNVZoUVhkZS1Xa0FrZ2NqdGthTEVhMjNhQWtPa2tNX1pNcE9hX204Wm0yZlp5N0g2NWxnbENHVE9NZFB4eU5oZWVnNmlxd2NQcnR5dVVrZW5iY3ZKVDVHRjhXWU9RblNXZ1VQVXRoZnpTWTNmNlVaTEd1Unh6Y0lkVQ?oc=5",
+      "source": "Reuters",
+      "description": "Oil prices jump on report US to send more troops to Middle East&nbsp;&nbsp;Yahoo Finance UK",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "2026 Iran War | Explained, United States, Israel, Strait of Hormuz, Map, & Conflict - Britannica",
+      "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE9GTnhfOUV2MndpMTFxdjZSeUpvMm1mRTVrNVZROVRoRHZyZjRCQzVpdzlPcVlWY2lTdEtuMTFEQ25Fd09mR3I4TU5RLTBzS3doUzR5d0VlY2piQQ?oc=5",
+      "source": "Reuters",
+      "description": "2026 Iran War | Explained, United States, Israel, Strait of Hormuz, Map, & Conflict&nbsp;&nbsp;Britannica",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Gas shortage caused by Iran war may push India back to dirtier fuels",
+      "url": "https://www.bbc.com/news/articles/c1d6vyy9v61o?at_medium=RSS&at_campaign=rss",
+      "source": "BBC",
+      "description": "Reports from across India point to rising sales of biomass fuels like firewood and cow dung cakes.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil prices today: Crude eases after spike as Trump, Netanyahu seek to ease concerns over Iran war - The Times of India",
+      "url": "https://news.google.com/rss/articles/CBMimAJBVV95cUxOaGxpYjNxYlMwX1NIc2c1MVZfMFUzdVNiZUlibnBfYTl2NE1HdEJZby0zcmRnak12eW8xRDBRMk05ckY4ek1NOTc1dVU1SlNKTTZfeTJVT21nUFkzb2t1S1FZbFd3enpndU11UnZid0pPblV5dndGWEVCVzZ0UWh6VGNEQkZNSzlsS3Q0ZGRYNFJYOUlVckY4Y2NVWFYzNVQ4blZrdXA2VTg3VDM2SGJWOTIzUU8xWDE0dzAyXzFEdEplT3NBZzZvbzY2VElzcEJTYVNSbDJ4bTkxVlFYQ1Jtemk4ekhNUmdHLURCdjh2a0VjTVpILTNlT0RIS0JXQ2ZjVm9TeWJYbUJxZ2lHQVNQTVl6MGVBeDhu0gGeAkFVX3lxTE1yNmlVS1czdDVfb3paODV3YUpQQkNFZ1BaUUJYUDRFVjl2TXAwbXRZTEtEZ3JuLTVNREJpaUZrV28xTGdwQ3dHR0NhUm1Dc1Fldm9haVRYZ3RoVWI5elExZWtEc053WGFXb2wtNlAzMGZTemhZRmZVbFZwWjBRSGZvRk0xTVZzdFpUZnAxSGJUNHJKTkFEWHNQTmdoYUVsTFFCSjItSGFwT3V6OEtiRjd6Yko2NFBCdVZKRllxOUEySFpHR2hLa0tGcjVzX2JBQnUxTTVyYVEzVzA5T1p6QU80X1hBaUNnMHJsWHNqdHJ6dkZXVm9HYXFKSkFmempUYkZ0cnJJV2pIV0Q3NVl6WF80c1FFQVlpWFljcGVud2c?oc=5",
+      "source": "Google News",
+      "description": "Oil prices today: Crude eases after spike as Trump, Netanyahu seek to ease concerns over Iran war&nbsp;&nbsp;The Times of India",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil prices could surge past $180 as Middle East conflict disrupts global supply - report (CO1:COM:Commodity) - Seeking Alpha",
+      "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxOcnMxanNmVXJRQmJURWhYX0Z6b2xzUFcxNmluMGROWkJMYzVjRjNDM0h1S2NUZGJkYjJTeVp5OC1Rc2I3UjMtMDI4WjcxM1lUNk9GMEp6c00xYWpWS0dqMy1PSWN6N3JOZGREZThfT09WZjd2blphZmlEU21fbS13RkVjYXItck91eEg5QUhwd05wRm5iekEyTkxrMEdxRER0Z3JhdHZfejFLdUo0NDNlYmNDM0NtZW9xMEV3aHpzSDNIU2M?oc=5",
+      "source": "Google News",
+      "description": "Oil prices could surge past $180 as Middle East conflict disrupts global supply - report (CO1:COM:Commodity)&nbsp;&nbsp;Seeking Alpha",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Iran war latest updates: Oil prices jump after strike on Iranian energy site, top Tehran official killed and more key events that got us here - Yahoo",
+      "url": "https://news.google.com/rss/articles/CBMilwJBVV95cUxOWEdhX0NzeFhNSTNtUzBVOG85amRjUVJhcG93c2k1eHJIaEJVV3N3aXpzUVF5UFU3QS1ZY092bjgwUFMySlhkLUtEeE1SelFUVVA1amg1ZmMzdW5rejhrSzNlOEdNSnBXTC1MM3VQTG0wTXluVUlwRVhxRGpCUXpUZmxjSGdJejdJT3Boa2JXc2Y4bk5vMTNGUmlzdHdab1NXY1NUaGcwVy01UmN1R2dwR2ViWE5XLTV5VkhiT21LLURVNGRFN292eUFDYm8ySjZmeDdwUVYxRFo2ZkE1dlFQdUZxRGVEa2pjSXUtdDBVNWxXR0lvUDZidUtHVUJlZkRjdl9RVlhYbjZuT2k2UDVkNG9oMFRxR00?oc=5",
+      "source": "Google News",
+      "description": "Iran war latest updates: Oil prices jump after strike on Iranian energy site, top Tehran official killed and more key events that got us here&nbsp;&nbsp;Yahoo",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Goldman Sachs Names Top Oil Stocks to Watch as Middle East Conflict Drives Crude Higher - CoinCentral",
+      "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQWnlzdGlsRktZeWFWOUlRTWdFMWdMVGhGSV9SdGxld0ZpazRpZ3BRQnVMR0ZudXU0Vl84d2RCWkVKeUU3OHl5T2RXcEp5VVpsZ3ROaU1FZlJ2blhoMWdzOG5rMDhUTXFqQjBKb2d1enFHV0FReElnUWd5MVBhTGlPekp5M0R2RDhFRFpBUnljNVhOM3Z1dXVDNnI5NVhvMUxrbDNRbU5MclZuLXM4VWZ2V0J3?oc=5",
+      "source": "Google News",
+      "description": "Goldman Sachs Names Top Oil Stocks to Watch as Middle East Conflict Drives Crude Higher&nbsp;&nbsp;CoinCentral",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "markets",
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "US-Iran war triggers 'largest oil supply disruption in history': Report - The Business Standard",
+      "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNa0N6SUdMeTl3VkRPa1JPcWhzT1pJR3FyaHdaY2s2VzNJX1puSXBSNnBUdjBVRXQ2X0JQX1l6TVdSbTV6SEFKd1REZXU5RzRvYi1lVGJTeEdFNjJvRWZZOUFHYmEtX3ZOTE5Mem8wX3FxU2hRdjY1WC1UOFRBdEp5QkUzLWFfWVNuSjF2Y0NZcUdBQkk1THhtLTNSUWM0Q1BlSlEtU19R0gGrAUFVX3lxTFBDLTVpdHMwWXYtOGotSUhkSUJGMy14MElteml3MGxUVGpZVUJ2U0JQeUNqbUpQVFd6UEVfY0xrOUZkTnBoTk9GVUxyQ2lSR0F1M1V5VHoyMmJMVHdlbHZad0M1UktmbEp5c0xQQTNZaWZ3Skx6ZHNudWpqNllXa1JORmQxbHpSMlVSc1VNTVN2aUhOWWVHRzV1ZW1EUV9FZEJCeVNUT2kxUVNNRQ?oc=5",
+      "source": "Google News",
+      "description": "US-Iran war triggers 'largest oil supply disruption in history': Report&nbsp;&nbsp;The Business Standard",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil prices rising, Russia gaining: How Middle East war is playing to Putin's advantage - RBC-Ukraine",
+      "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxObFBEQ1Z6UnhEbXRMSXZ2bTV2eGFQUjBDSHplTEs1UU50XzZta05zbmxWSlZwMS1ONE1RYVdOUVV6ZVE0SXpXZXJHcVhmWGp5RmhEbk40dUVfVC1Obl8tNkdUNmUycG1qU3JFZVBZVW9VVGhaLTZkOXBLNk1EaUNIbXQ3cHlpTndtR180RVZHUXJDVnhGdTRDRlllQ1g?oc=5",
+      "source": "Google News",
+      "description": "Oil prices rising, Russia gaining: How Middle East war is playing to Putin's advantage&nbsp;&nbsp;RBC-Ukraine",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 9,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Palestinian citizens of Israel demand better protection against missiles",
+      "url": "https://www.aljazeera.com/video/newsfeed/2026/3/20/palestinian-citizens-of-israel-demand-better-protection-against-missiles?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "At least 15 people have been killed by attacks in Israel since the war on Iran started late last month.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "What are the risks of turning energy sites into battlefields?",
+      "url": "https://www.aljazeera.com/video/inside-story/2026/3/20/what-are-the-risks-of-turning-energy-sites-into-battlefields?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "Oil and gas facilities in the Gulf have been attacked since early in the war on Iran.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Iran war escalates, energy prices spike after Israeli strike on South Pars gas field - CBS News",
+      "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxORFVCUi1adnVxSDVZenBIZEE2dWVlMS0yNXZ5Uy1vRnk0NkJzTFRKZExlNjQ1LTcwOVBSN2VtQWNxVlhZMndkdnpmQTluNjJpQmdwZG53OE9yVExBOWtMX0JtZERCS3QtVFpNemhxTzJNSjlnNHVCeXF3eHFUMkJsT2ZCcU5CdG1USWZuMVFVdDVHOGRONkpVX1VyWC1IM21GemRMTmVTTWtXYzZ3akHSAbMBQVVfeXFMUG9aOVR6LU5QNS1xVDNfdnhWVkFaT2taQWNWVl8zZjhhWjhUR1hqb2ZtOHo0SXBGclhyUG5KQ3h1TF9CNldFYnN5S3p5aGpMa0VMYkpyWVJfRXk4MnVuWVI0RU1Jcm5Ya2w5dTRnU1pqNTlET0MweGdZaU5FdnVHRmYyYkU0SWJ1VmJUZ1QyaDFSeWV4Mzh3NWliLU8tdnc4MzhXYUg2VkVQV25YMk1RY0IwZ2s?oc=5",
+      "source": "Reuters",
+      "description": "Iran war escalates, energy prices spike after Israeli strike on South Pars gas field&nbsp;&nbsp;CBS News",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Will Russian oil be the biggest winner in the US-Israel war on Iran? - Al Jazeera",
+      "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxNU3FWV3JmMjB3YlduQlhTaVB4eDVkWGhIOG9CV1VSdFNDOVlwdFdkMHZzUjUtV0ZRb0g0alhLVmNvWDFVZU53ZUF0OE5HaWFuckdnSUhvZWZjbmR0Ml9vWXRobVlvQ3QzNXJkZUR5RExjbGlWWkd3MUluNGRMbzZqX014aGx5YlQzZzZtSkJUbjAtbi1mUk4xTTRHd1haY2oyaEJRS2plV2w3cUllTFMyS2ZR0gG3AUFVX3lxTE9UZTl2M1ozRmFCZWFNODVNSGtVYWtfYkZwNHBQc2FiUFdJVXp0b3d3UFhZWEdOTnVVamlyY25JSzEzdHJ6N3ZCQmNodWdDVVlSZUFjcC1IZHRvdUc4MlB1THNjUWFhSThHZUt0Wmo5XzVFb2M0TkF2bkZCRmZ2d1JGSm5sS1E4SzRuRV91elJNNFpnUmg0d29RMGlVSmdWT2RDdHhTZTJjT3ktUGhNUEY2Y2FvdUpMQQ?oc=5",
+      "source": "Reuters",
+      "description": "Will Russian oil be the biggest winner in the US-Israel war on Iran?&nbsp;&nbsp;Al Jazeera",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "When energy becomes a weapon: Oil and gas diplomacy on day 20 of the Iran\u2013US\u2013Israel War - Middle East Monitor",
+      "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxPYzdhZnJTUC1neml5UW9sQWZwUW1ROGVndHVtVG9UazJ5akpvSFp3R3FsdWhpTDIzdXhjb2MyTmk3cjdPT3JzWFFuSTM0bW1xS1dOOFdJQ1NHY3V2cXpQQWt1My1PNHRqR1kxejNuVjNmUXBBdVI3STVpcEI4TTQtVmpEd0s3eXNrVzZkM3N5MXBmcXd4bW1pSWRTcmZBcjFwdkl4ODVNODNxdWstQkozajhJMFdKVW84ck1kYUNXTmZrUWFkc3lXckln0gHPAUFVX3lxTE5PMHdKZkVmUmFkalRTOXVuVlBhdko2eVd2bDNmSVBHTFZLQ2ZMeW05MmdyaTY3S05sS3FReTY5ejBub1ptendxU25JQ0dGV09jbGhVbGVkTzh5WGkxWVNFTWJHSks0Sk1PRXVlRWZ5ZmpvWHh3aVJ3OXJsXzdQTkxSYnpZRVVIUEdYX3o5Vld1SzMtLW9Mb2I0WW1hSVF4bU96SURjNm4zN2NzNlJjTkNheWZTZjFGNV94NjluejMtRHdSVXNpVmdkc2dMRkxjYw?oc=5",
+      "source": "Reuters",
+      "description": "When energy becomes a weapon: Oil and gas diplomacy on day 20 of the Iran\u2013US\u2013Israel War&nbsp;&nbsp;Middle East Monitor",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "95% drop in Hormuz traffic as war disrupts oil route - Gulf News",
+      "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQZTVGOVhHZDN4dlcxVkVBSS1EZkxwV2ZTYXAzQzBJSkZjYmtXejEyQjBYT2diZVlpWXZPSS0zTTdPREhVUG9McXV4UmdjWHo0Q2REY3dMMnl6TnJlWndTaUZ0eXRDNWRrLWlSUkd4M2xqY1hOWEIzd1pWbV9kN01yN3BOMzRVMGJWVldCbEZEakZYWENENFhRN1hLVdIBrgFBVV95cUxPT0hQdkJVX0ZRVllNZFkyaVhvQmFQWTVkMTk3RG9CbWd0MldWVV8zUzlfdFJEZDhzdXhNS01SVGVIdTFUQkpvRmptd2xIalIxNWtINWV0RXdCLUU2OFhERDAtWE1uTzRNaXRvXzNYN1BQWkdUUTNaVS1PeFpWSFZvNEVDLUQ3Tmh2QTlVUmdMdWptQkVFQ1JjdVZ6ZkxvRl9SZUN4dlM5QzRjWkVuWEE?oc=5",
+      "source": "Reuters",
+      "description": "95% drop in Hormuz traffic as war disrupts oil route&nbsp;&nbsp;Gulf News",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil Prices Slide as Netanyahu Signals Iran War Could End Soon - Crude Oil Prices Today | OilPrice.com",
+      "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxPSUJzZUpJZEVnUjVYWi1KSlU3M1lDYzd3SVBGWWhDc2dqR1htS1BwdlJNNWlfdVd2RTQ2b2hvaWpQSFp2LTNUb0d5TGJzUnJFTjlncTY0bEp6Y0h0Y2w2M1F4NXpTTzl5N1NRVnNaZTR0SkhzeWktVzlRNTdqcTh0MlA0U0s0RkRObFhYazJSRUZObk5JZmhEV1B3Qi1BRldnNW1CUkRFN0NRNkNfM3p3ZXhmX2djLWJB0gG-AUFVX3lxTE1xSEh0LUtyamxGVnNqU1BKcmRaekFzT041OW16bkRORk1ZSF9kT3RyTmpSaXdYWHVUb01QcE5zc1V5R1VzMTB4bFdHUmtzLXBGVFktd0p5cVZsdTJqWUxETko4UVBrY1RKRGw0S1EyZjVaUERBaXIybDB6N3lleFNSdkJlZEZOdWtEeGE1dDBqbFZrZFhabURFWk04WnhsNzNCeXlNX1FneENGam5qcXN5cS1uWF85RGlYdlNqclE?oc=5",
+      "source": "Google News",
+      "description": "Oil Prices Slide as Netanyahu Signals Iran War Could End Soon&nbsp;&nbsp;Crude Oil Prices Today | OilPrice.com",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Crude Oil Prices Push Higher on Fears Iran War Will Escalate - TradingView",
+      "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxPQWlPTzN5UnQ2Tld6VnJzcmxoVndjSmNlQUlkZW1CY2RUM1BEa1AwSy1BMEpTUFB4NWZldjdIM2NuTVpTM3dmUzJtX214WVJ3dWs5c2RnRzRzZ3JrQWMydUZoUGlhRVFNb0xXNVRpZ3k4Z0lNa0Q4cE5QTC1wWGVjeDRqWl9DMjFTTk9JTDE2TzU2UTJWU0ZTSXJONERvYVJJNTdlN2JaWXFCM1R5TjZoMV82RHFrbU9CZzAw?oc=5",
+      "source": "Google News",
+      "description": "Crude Oil Prices Push Higher on Fears Iran War Will Escalate&nbsp;&nbsp;TradingView",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "US stock markets today (March 20, 2026): S&P 500, Dow, Nasdaq slip as bond yields rise; crude oil prices - The Times of India",
+      "url": "https://news.google.com/rss/articles/CBMixwJBVV95cUxNb19qTktTekVuN2F3MnpnN1ZmSHFZNW5KR0czS09naGVIU0g2OHlYeEp6Qk00a0F5bU1QcXV6QWVndHQtbldDeVNtUVV6Y1lnRG1UbURMazR6Q2xwRkRpTXRUUDV5MmVweFhqUWxqLXZjVUhOYVR1RS1fSkhtSXN4Vk4wYkVFQVNBWU53bnM1X2duelNDZzFNZC11WHRKQklZd2FwR0hxQkR5cDJuY3NIeVZvNjR1QU5zeHh4blBkaF83N0w0U1dYZ0w2Q1ZTeWstZFhsNDY1Z0lwZE44QnQ2OFlZTXpkQy14T2luX194elU0dEp4LWdHQUowY3RRaHMtNXNMVkR5QURKaFdpUTlOcTVTRjhQYUtLcTh1Q3dKQmJyNWZ3bnZ1WDVDaUxCWnFIQXctZFZUREpSckVZWi1waXliSjg0MXfSAcwCQVVfeXFMTWJ3TlkwWEd4SjFWRkltYnh3cTRwX3hUS3RnZE9UUmtQZk5rS1F4MzdYQy1jbjd4a05DTVZqbmlrblBHMTVkd05XXzNua1AyMTNKT3dVTUVrUzRuZm1uaTlWT2pLRF9wY19Dcm9scUx3Qy1TNS10T1p6ajA5ZjRaQnh3WDdyem5WdENNOVdXc21FWXhkODF2am1zWEI5ZXJsREthUWNEZmQzMHo3elI0UUctZFUwOS05NUEyNk1qYXQ2THA0azJHenlrUFFTNXVSR2Ixd2dZYkU5SW9UNjlPSVBWTC1yNGlKM0FCdUNfSXRMWW1Ba2FaOTAwMWtTa291X3Q0YmZwQzJ2cVRuTEplMEZ4dVQxR3hIYkdnbmlzdDQ5aldjaFZQcjlPaWh5b3JUVU93SlRMZF9NU1RIMVVMb1YzN2RPNkR0WmY2OE4?oc=5",
+      "source": "Google News",
+      "description": "US stock markets today (March 20, 2026): S&P 500, Dow, Nasdaq slip as bond yields rise; crude oil prices&nbsp;&nbsp;The Times of India",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "markets",
+        "oil_energy",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Iran war live: Trump baulks at ceasefire as attacks hammer Israel and Gulf - Al Jazeera",
+      "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxQaVFhaFNpSGtlOXp1TXVIcl9pRWY0b2lZYjlUUDJGQzNZNnBoMmZBSGo3R2tneWRJdGZwbHBBM2tuY3pPVDFMRnIyNG85amtrLXJlZHlnRzRPRThtUVpWUkEtTlNnYkxaYkE2dXZuYTV4QnVCNHdFWkFOQ2E4YkZXUXRDU0E5WnpEdUQ0Rmk4SXFWZkdSZE0yM2pTc1Z4R0lkRXBqenpTZmxJSGcyOWloc3M3ci1KWksxUU4waHRONlFqZ9IBxwFBVV95cUxPcEJXeFBPNnNhRUdVUzRTZWlyOVkwM3htYkJFME1xQ2tCaGI1bE8yWk12THduR1JiYmp5SW9jWV9fQjF6MUNTVWlqX0Y1N09QLWc2NUxWV2lJS3FYdHNVVDBUd1NxcmluWFFrNEhfQjBUeVFCemtFZjJaYjZpa3MyWEJocVhmQ3AtOTVjUm9rMnRtSTZ0YnJkTW5nVVpWWmxISGp3bVhGRjV5RU1oSEFZcDVfWUJzalJWRmI1bmNUeGxrd0gtMzNr?oc=5",
+      "source": "Google News",
+      "description": "Iran war live: Trump baulks at ceasefire as attacks hammer Israel and Gulf&nbsp;&nbsp;Al Jazeera",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "U.S. Military Ramps Up Assaults on Iranian Drones and Vessels to Clear Strait of Hormuz - The New York Times",
+      "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQZzA2VGp2dzJkeUU4LTZuWW84bl9JOW5XX0VrQTE1SHNIZTFQbHNrT2hDRk9ORUJNM2ZDcGNPU3VEMDJFNC1Vb3pkb3JBeEExQ2V1bnlYR2RQUmlKcW54ckpGc2lENVVsN1JHUkMxVy1YOEpsTjRITWV1ZndUc1BvVVZaUQ?oc=5",
+      "source": "Google News",
+      "description": "U.S. Military Ramps Up Assaults on Iranian Drones and Vessels to Clear Strait of Hormuz&nbsp;&nbsp;The New York Times",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "U.S. Attacks Iranian Drones and Vessels to Try to Open Strategic Shipping Lane - The New York Times",
+      "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQYXJlNnBsWTFxbmpXTUdlREpvaDlsb3JtMzZaUnhTYWVLZ0t4T2JVX0pPVjRVU1lCOHFvWDcxN0hYNUFxV285WWhIcXFjYXJJYlZxTmZmdlBlSDlvNlJaYmU5YXBOOW4waEl0UUU3WGNqVnpJczdpYVJWSk9tOGZoWHhTTWc?oc=5",
+      "source": "Google News",
+      "description": "U.S. Attacks Iranian Drones and Vessels to Try to Open Strategic Shipping Lane&nbsp;&nbsp;The New York Times",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Report: American Aircraft Strike Iranian Ships in Strait of Hormuz - Haaretz",
+      "url": "https://news.google.com/rss/articles/CBMi_wFBVV95cUxNd1VnWmFoMnBqa3NncnFuNVh6eFFUUldqR0FOTHUweWxTWTJVVS11TzZrd1FhaTZueFJfZFBYY1F3YVl2QWRMZnk0V0M2c1g4YUZ1RWI1aEt2emJqWVIxR1pNSllwMU5aVGxhVjlfTFlXQk1jcnpfWlNmZXo0d0JxbEhoaHpDMndTa3ZCYVgzLWlpZDh2QU00ZHl2bVd5eWxSdW5Id25jQzZKa29wT1pWT0t3X0RfY0dmUXgyRTdsYnFvbllBdk1jVDZPUVd3ZEhOcEJreWdHYjVQcDJVQkxxSXJOSG0yT0wyOWhoNkxnaExRdW9BemN1UnZabmFHakU?oc=5",
+      "source": "Google News",
+      "description": "Report: American Aircraft Strike Iranian Ships in Strait of Hormuz&nbsp;&nbsp;Haaretz",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Hormuz shipping traffic collapses since Iran strikes began - The New Voice of Ukraine",
+      "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxOdm9FNkN2ZG50aC12dy1XQWlxcEhQLWNJX0ctd0Z4UFFDVEtHdWNIY1EtSEd0dlZmLWIzbmZ5c1pyLTFtUEltNWFtQVRxTTZOTmpmcTlCR0U4WVF2bTBVR2R4RFFCQVVPSnEzWVFRYWIyN1NZMGVHTUhqcUNQazV0UXNBUFZzTzlkc1JRZ2RiSkxUWF9sR1BPQVdFemJHcWllN1MxcThhWG82RXR1ck12SmE5X0Q3NmVMaUdiTmo1ME02TnZKei14VThkSGtTLTTSAcsBQVVfeXFMT2d2MHBOS1hPSE0xQ0ZOM0E5eUZDb2c2eEhER2xMUjBvbzM4dEVRSllfTHRjUHdLbVEzQ0lIOHZUa1Jva3FCbmlkeWNYVjI3M01iYXNpZUtMQjdybHgxUjZDWU5rRWRVM252Rnl3VWdGZ25aNkFMNk81STdESlYzcmU1bU1ZTHcwQUpDTVg4MnN1Y1B2QW90d210MUZybVRBVXJoYmNMWmJsREs4d2NPLUM1WEVVcy0wVjJoN1F2S2F2SjRCUW91NE5ucHc?oc=5",
+      "source": "Google News",
+      "description": "Hormuz shipping traffic collapses since Iran strikes began&nbsp;&nbsp;The New Voice of Ukraine",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Middle East conflict fears send oil prices up, could hit US gas prices - The American Bazaar",
+      "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxOdGdudEhNek1lcG4zdTdLa2VnSi0wakkweVgycUxqbjBwLUwwc3lDRXhtcnRNMC1NOWpyMi1neW1vQVNwMXdDSFdtUk5YaWRpSjYzaktDX0JVSENLUTFLT3dybHNqZzVXYUROVFpPcFFfV1pTWVRWdTU5TDlUOTYyMmFTT201bEVhSXNEb2s4RFN0NjlBUWlZbE9rb0xSWVREMGs5M1lSNjRsX1JuNFBGNDhwb1FJRkdIOXNzT0hB?oc=5",
+      "source": "Google News",
+      "description": "Middle East conflict fears send oil prices up, could hit US gas prices&nbsp;&nbsp;The American Bazaar",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Middle East Conflict Causes Central Banks To Hold Rates - Family Wealth Report",
+      "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOcTY5djR1Nlh2Y1pYRXZtblZ6R045Rl9kbjhyVjI5bzBod1ZFNGFBTDdwLUduZnVKRGg0UVRGV2lZOFByTG04SU9GT05XblJlSUI3YlBwdVBjMkg2elE3Z252ZDF2V2dJOEl6dkVYUk5teUc2Z3g5eVFXblBwZE0tRnBqbFJFcUFDaHNvNzBHZkNMbU9PNHQ4M0E1SzZmUWJLSjBFdw?oc=5",
+      "source": "Google News",
+      "description": "Middle East Conflict Causes Central Banks To Hold Rates&nbsp;&nbsp;Family Wealth Report",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "markets",
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Middle East conflict: How to ease oil price pressures on consumers, by report - EnviroNews Nigeria",
+      "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNYWVpblpEQWN6RWhxbF92bG1Gc1A2T0JtN0tSQkFZQmxOZXM4RmJhc0k3THB5dnAtT1pncVpHZTFmNFNoZWYyelV6ZWRXWC1FUjhLam5aMk1sMGVPaDBQWGc2bU54bHJ1MGJ5MHhHazVTWVZiNFNvYm1CN0g5NzZQeFJNZ1hZa2dWM04telltdUJucExTRkpHU1Fkd29ELURMVjlXTjRFbkpMeVY1d2pZ?oc=5",
+      "source": "Google News",
+      "description": "Middle East conflict: How to ease oil price pressures on consumers, by report&nbsp;&nbsp;EnviroNews Nigeria",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "shipping_trade",
+        "war_conflict",
+        "regions"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Global Energy Crisis: Israel Halts Gas Field Strikes as Iran-Israel War Rattles Markets - Travel And Tour World",
+      "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxPZHpNVTFUdk9RSWM5TUFDYnVNOThMcXpjVEJ5NlB1UTEzcFVId21HQUNtQ3JXUS1YQjNXTVJTSkpSN18wTzVKY2o5SE8wT3M2T1RHekpxUkNVXzRNZXctSkhHYllqZWJGZklSeFdfbzAxTlN1OTVSUklFY0FXbEhVYndIU2ZKdG41ajE1cE1UWkhWV1ZtcEsycno2WVpOQ0tXZ2JyWVFrVDFVTmJsdkZWdm54SEppOFd6RldYYkl4QjlxSDBuT19aXzVuRHRJOVNI?oc=5",
+      "source": "Google News",
+      "description": "Global Energy Crisis: Israel Halts Gas Field Strikes as Iran-Israel War Rattles Markets&nbsp;&nbsp;Travel And Tour World",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Iran\u2019s Attack on QatarEnergy\u2019s LNG Hub Sparks Global Energy Crisis - Discovery Alert",
+      "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNVHFwRFUtekNYQ0RvVk5jM2tFdDBHSXAtM2FoNDIzRzNRR1UzVHhscDA4V1F4b3JUYkRuSVBsZ0dHSVZwXzdHX3ZiX09jZi0xakpOMXpaZ3RYSF8yVHpocUVscXFlaEFwblBmVVVJVDlCT0h2MVlDMUVyU2xNTEprWFhhQ3I2OW53dWV5Q2hyWnhJaThI?oc=5",
+      "source": "Google News",
+      "description": "Iran\u2019s Attack on QatarEnergy\u2019s LNG Hub Sparks Global Energy Crisis&nbsp;&nbsp;Discovery Alert",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "European gas prices surge 45% after QatarEnergy halts LNG output following Iran attacks - MSN",
+      "url": "https://news.google.com/rss/articles/CBMi7wJBVV95cUxQQ1pFeFlkcENkVjFpNXZfeXpxakROdkQ5QWJlWVpZMFdPMHcwcVR2T1B1VmNaNWVjdlFsUmZLNjkzaE81R19zTFBZUm1hUVkxaUVESG9yQlpMX1BhOGNNNVJPUy1ub3BMbXo2dFg2WThfeXkzcG1EZXgxY1NvSk94ck9jVkJNRDVDZWEtODB6Zkp0Q3dIUkl3b0VlQnAzcm1ldnJyU1dzYkhOSVFxY213SnZ4OVIxV1FBZVFyRFJ5aHI4MmpJQzA3MmZzelVmWnp3RkdUNEgtMGI0Y1RfZ2tqWlFOcjlGcGcxVjZMcjEtaVhKY3JSQ1RNQ21yU19WcGkyeEhUNl9RczE2Qk9KZFcxMC1aYjJJVV9ESHhXMmh5VGlKZE9tbXg3UXREZ2x3emFKdXZGaWxyTlpsTnpya29xRmYybVZGamFWQTZhUXhPdmFpbTNTZldsVDRJdEVuSk1BM0F3NFhEMGpYNU5BUW5j?oc=5",
+      "source": "Google News",
+      "description": "European gas prices surge 45% after QatarEnergy halts LNG output following Iran attacks&nbsp;&nbsp;MSN",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Saudi Arabia assesses oil price surge amid Iran war - The New Voice of Ukraine",
+      "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNVXFOWl9ubmF4UndYaFNaX1dHQk9JQXJiR0wxemNBRGRialRxV3BBODJMZWVUY2Z4RVdKVTRwcnkzM3JVa0ZvTl9meEk3REdOY25YLVV2UWNSV1drVUVUdnBsNlVZaEp6SjNzQ1lhM3BYc3B2T2pnT1E0S1owb2pXTXpmbVI1cE0xOG9jVVhwRS14YVVLQUdRemV30gGTAUFVX3lxTE9kYVIwZnRoQmlRM3J1Rmtqc0lzaHdfMHZDcVJsUmp3a3Bua3FqcGItVXVZZFFvVkFSQ21ieFFwV3VHdkZOb09aSnd4ZUpiVC0tV2tNQkUtYU9vZm9BVEJZbnlRMFp5bEVuZUFwTkFIdGNnOGc3d01ONi1kQ0hldG9tbDB2Y3NnQlFfY1RNTG9WLXZoaw?oc=5",
+      "source": "Google News",
+      "description": "Saudi Arabia assesses oil price surge amid Iran war&nbsp;&nbsp;The New Voice of Ukraine",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil prices top $112 after Iraq declares force majeure, Kuwait refineries attacked - CNBC",
+      "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxOOEw5b2NoSkV6OGtmR05QUHpKOXR5LVdha2xzY2xGdUNJa0QtckZBNWtnQWgyZ3g1anhuWnA1MW9xSHlIZ0NFQTljMXcxd2hDVnJtSG1iMElobFNnNkhicnkzTk9TYXZlQnhLWFZiWDNmaDBSYVByd053dlMzTFN2T1haV0ZqMUZrc25PR2tYOE02VzJoM0ZLazdBa9IBoAFBVV95cUxPMXdLQjlkZ0xWV0h0SWMyRUZlNWZSX2tyQkRwQmhENURsRXVIZ1UzWkhvd1BTZ1BJM3pJcGVjc0g0VC1CY2c4bjhiQUJnY2dVUkE5dGptWW9uSUZNQnd2blNsRFZHT0Y3Rm9LWGl4WHRwLXFhbFlfb0tJZDRoOXprYzJ5Um1EeEdteHpHblpCNmZBaFhwNFc5cjN5bVRfRVdY?oc=5",
+      "source": "Google News",
+      "description": "Oil prices top $112 after Iraq declares force majeure, Kuwait refineries attacked&nbsp;&nbsp;CNBC",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Brent Crude Slips To $107 As US, Israel Signal De-Escalation In Middle East Tensions - NDTV Profit",
+      "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxNc3RkeTBta1ZoQTFaQ3pyQjF4MzE4NmozUS1uYUJPcmlScUlHNGNWdVBTWlhXYXh0ZFh6NGJSSnRXWDJNdkowbEljRGFPeWxJbm9oMFg3ME5PXzhpZWxENE9mdTJUWlFUN0hNX1dHUXZUSU1uYThwQkcwNWFsVUJrb2tSV2Y3REdoajBPd1pjZzNPdmZWdV83ckhUMUZDLXFKbEhkWEFBeGJ1dmt2amNaOTJ6aTNCNnFoeDdRQ0JfaTVPZmotaVpKR9IB0AFBVV95cUxOV0hFWFMwWkR1a0RuWDl1QnVHWUw2dnQ1b3A2STlmRlVhQXdmUmx5LWd2MlJJTnVTREVqRnlSRlZHN3lDWTVJVVVkVXo3YlJycGhFMktkM3BKcU9tUVFLOEVxdEswMU9OckJ1SkREOUd3VnNvOGlPMzNiM0gyR0plcnlRSnRxMjBPSF9zSGtXcVEyODhmQ3ZvUkxRdjUzUk1HNHAwTWsxLUtBVGxSWV9NSEtyVG1vTUFaZUhSMUVnZ09NYUVuOGExT01qYnBvbnVZ?oc=5",
+      "source": "Google News",
+      "description": "Brent Crude Slips To $107 As US, Israel Signal De-Escalation In Middle East Tensions&nbsp;&nbsp;NDTV Profit",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Energy Abyss: Brent Crude Pierces $110 as US-Israel and Iran Conflict Ignites Global Markets - FinancialContent",
+      "url": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxNWGdhbVVyNDFCM3dPM0RNekhpQVdaeVBHcGlJZmpoLTcxNmN5WEQ5RnU3LWFNc3ZHa0JfZktDTFVmQlJ4Sk9ORG1iSlRqcG5XX3dCTW1obnFRVk9fUm1TcjdPRnRwbjhOU0FXN3d1TVk3WFdLR01id1RIbWFWVWtSaENGVVBJRlQ2OHlsZWhkV05sbV9VSEJJQzJQWV9xMHZMQVk5YVdPNXVkRDR3aEFkX2ZBLXZOMWFqQWRJbjhIdjItLXF0NzV2Vk5xTnZ6MTliVWI4ZzU5MzBFRVhRUVRXNF9hUEtxMmxDcjMxRUVOeV9PZnYzT0hqUg?oc=5",
+      "source": "Google News",
+      "description": "Energy Abyss: Brent Crude Pierces $110 as US-Israel and Iran Conflict Ignites Global Markets&nbsp;&nbsp;FinancialContent",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Brent crude nears $115 after Iran attacks key energy facilities in the Gulf - PressReader",
+      "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNcmoyd0hEWHZ4Y3ZkY2hVR3AxZGoxNmhZbWlwenR1eGdOVmdQTTNzREpuMEx5TUNPVGhtM1o1UHVJM0ZXQng4MS1kaGhITVZwS1VsMEVPZTB6dmdtVTZJMXN3WHhiUnJIbEZ3Q1gwVVp5d3FzVnBmekhOTW9lUEktQVpn?oc=5",
+      "source": "Google News",
+      "description": "Brent crude nears $115 after Iran attacks key energy facilities in the Gulf&nbsp;&nbsp;PressReader",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 8,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Military movements indicate Trump is considering Iran ground operation",
+      "url": "https://www.aljazeera.com/video/newsfeed/2026/3/20/military-movements-indicate-trump-is-considering-iran-ground-operation?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "The US is moving military assets to the Middle East that are key to providing support for ground troop operations.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Sri Lanka says it denied US request to land two aircraft at Mattala airport",
+      "url": "https://www.aljazeera.com/news/2026/3/20/sri-lanka-says-it-denied-us-request-to-land-two-aircraft-at-mattala-airport?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "President Anura Kumara Dissanayake says request made on February 26, two days before US and Israel launched war on Iran.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Switzerland halts US arms exports amid Iran war, citing neutrality",
+      "url": "https://www.aljazeera.com/news/2026/3/20/switzerland-announces-halt-to-weapons-exports-to-us-amid-iran-war?traffic_source=rss",
+      "source": "Al Jazeera",
+      "description": "Move comes as Swiss government also closed its airspace to US military flights directly linked to the Iran war.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Oil Declines as US, Israel Seek to Ease Concerns Over Iran War - Bloomberg.com",
+      "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxPcUZjTHdoXzVJY1dNejVtSlpiTE9qS2pZTGlJY2xDUWo5MWNRYVRGclhRY2hBNTYyZEZTMDNKRm5qSkdQRlFYZFVzX2xjSlpHV0psYXp1STRQUjQwTGNyd0pTM2ZrMkZQUk94aEsyVE1fejdSaFhYOTdLUkh4TjRWeXpOYm9uVm1CVzB3YVVGUnRwQXdOTkpQNF96VUJKTjdU?oc=5",
+      "source": "Reuters",
+      "description": "Oil Declines as US, Israel Seek to Ease Concerns Over Iran War&nbsp;&nbsp;Bloomberg.com",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "US-Israel war with Iran: Mapping strikes across the Middle East - BBC",
+      "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBLRUpYN0FvVmZYemhQRWd5aE8wVXk0VVhVWkNBVkZQQVRvWDd1OThuSGdvclZBaTd4UFpjS3ctUjlBZlBodnNLaUNYbnJFUDBLenR2cnZzVV9lZw?oc=5",
+      "source": "Reuters",
+      "description": "US-Israel war with Iran: Mapping strikes across the Middle East&nbsp;&nbsp;BBC",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Pentagon reportedly orders 2,500 troops, 3 warships from California to the Middle East - Los Angeles Times",
+      "url": "https://news.google.com/rss/articles/CBMieEFVX3lxTE5xQWRERWFTYTQzNUYyaEJVdjlGT2E4dmxfQ1Uwc3E5ZS1DUjJ3cGZxLW9iNG5EQ2pQaXBvckktVnRmcXZMdWtsYkREdG9lNXFqNFV6OURjUnRLVl9aWkRReGRQd3A1b2duZ0pyelVWWHV6czh6SDFpNA?oc=5",
+      "source": "Reuters",
+      "description": "Pentagon reportedly orders 2,500 troops, 3 warships from California to the Middle East&nbsp;&nbsp;Los Angeles Times",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "shipping_trade",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Global oil prices climb for 5th straight week as U.S. sends more military might into Middle East - MarketWatch",
+      "url": "https://news.google.com/rss/articles/CBMiugNBVV95cUxQM0VLYnBBOXhfckVjejJrTk5uWk9PQzBFamFiWjFKSEIwUVNwWG90QlluTzd0aEFmY3VKV09wdU9kOEdLX1k1NHJ2aVBCazNXdWlYR2hPMkFubVVPVEIxcWJEa01yZ19NN2hjeUVLUjl3WmFOWnlscG5kalhqWFd5UlluUDBlS3JtVVZySm5NZ2ZrSXI5ZEtUc1dPdXN0VEVNT2hhcFlRMGswRU9icTZKQzIyaFJad2pPMjRHSnNlVVN5RnJlU1kwVHNTVm5FRjdxRGJmaFBjREZfRXBCTUpLWkduTDByV05MTmdjVWRlZVQ2c1MwZDFteXdJV3IzOVJCRENGRnBCMlRpVjZDNkNLUy1ISG1GMzA2cUJ6Q1NjN3U1SF9XN2FoYnZBMWk1ZXVja2J5dXRhTERLVVRPQzRVZmVIVE9XVlJWVFIxVS1ySFNkdF9LN3BVeF94NWU2MVE1MnVPVzBjeVRCS1JaajR6NjRSbExJZVM2eHMwQVNkYm5jdlJvdWhqZW1ielpjYUozQl9ROVhlaVBTN1ZDQ2xiTGZHTGZ1bFN1OGRFeVBpV2gxcjNtdTlzWEx3?oc=5",
+      "source": "Reuters",
+      "description": "Global oil prices climb for 5th straight week as U.S. sends more military might into Middle East&nbsp;&nbsp;MarketWatch",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "oil_energy",
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    },
+    {
+      "title": "Russia, China and the US \u2013 the global winners and losers of the Iran war",
+      "url": "https://www.bbc.com/news/articles/c3wlwnn05zqo?at_medium=RSS&at_campaign=rss",
+      "source": "BBC",
+      "description": "As the conflict triggers economic disruption some risk being hit hard, while others stand to benefit.",
+      "date": "2026-03-20",
+      "is_global_geo": true,
+      "is_macro": true,
+      "is_direct": false,
+      "scope": "global_geopolitical",
+      "relevance_score": 7,
+      "geo_categories": [
+        "regions",
+        "war_conflict"
+      ],
+      "age_hours": 26.76636303722222
+    }
+  ]
+}

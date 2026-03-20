@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
+import logging
 import os
 import subprocess
 import re
@@ -18,6 +19,8 @@ from datetime import datetime, timedelta
 import joblib
 import asyncio
 from typing import Dict, List, Union, Optional
+
+logger = logging.getLogger(__name__)
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
@@ -92,7 +95,13 @@ async def safe_send(websocket: WebSocket, data: dict) -> bool:
 
 
 def _merge_geo_overlay_news(symbol: str, sentiment_result: Optional[dict]) -> tuple[list[dict], dict]:
-    """Geo-only news expansion so the overlay can use sector/macro evidence without moving baseline sentiment."""
+    """Geo-only news expansion so the overlay can use sector/macro evidence without moving baseline sentiment.
+
+    Now includes global geopolitical news from international sources (Reuters, Al Jazeera,
+    BBC, CNBC, Google News) to capture major events like oil price surges, wars,
+    Strait of Hormuz blockades, OPEC decisions, etc. that the Pakistani-only news
+    sources miss entirely.
+    """
     base_news = [
         item for item in ((sentiment_result or {}).get("news_items", []) or [])
         if isinstance(item, dict)
@@ -120,9 +129,28 @@ def _merge_geo_overlay_news(symbol: str, sentiment_result: Optional[dict]) -> tu
         return merged, diagnostics
 
     diagnostics = fetch_result.get("news_fetch_diagnostics", {})
+
+    # ── Inject global geopolitical news (international sources) ──
+    global_news = []
+    try:
+        from backend.global_news_fetcher import get_global_news_for_symbol, get_global_news_summary
+        global_news = get_global_news_for_symbol(symbol)
+        if global_news:
+            summary = get_global_news_summary(global_news)
+            diagnostics["global_geo_news"] = {
+                "count": len(global_news),
+                "severity": summary.get("severity", "UNKNOWN"),
+                "categories": summary.get("categories", {}),
+                "oil_war_overlap": summary.get("oil_war_overlap_count", 0),
+            }
+    except Exception as e:
+        logger.warning(f"Global geo news fetch failed: {e}")
+
     seen = set()
     unique_news = []
-    for item in merged + list(fetch_result.get("news_items", []) or []):
+    # Process: base news + local geo news + global geo news
+    all_items = merged + list(fetch_result.get("news_items", []) or []) + global_news
+    for item in all_items:
         if not isinstance(item, dict):
             continue
         try:
@@ -138,12 +166,13 @@ def _merge_geo_overlay_news(symbol: str, sentiment_result: Optional[dict]) -> tu
 
 
 def _build_geo_macro_prompt_context() -> dict:
-    """Collect request-scoped Nikkei/KOSPI + crude context for geo sentiment prompts."""
+    """Collect request-scoped Nikkei/KOSPI + crude + global geopolitical context for geo sentiment prompts."""
     context = {
         "available": False,
         "nikkei": {},
         "kospi": {},
         "crude": {},
+        "global_geo": {},
     }
     try:
         from backend.external_features import fetch_asian_market_realtime, fetch_commodities
@@ -171,7 +200,23 @@ def _build_geo_macro_prompt_context() -> dict:
     except Exception:
         pass
 
-    context["available"] = bool(context["nikkei"] or context["kospi"] or context["crude"])
+    # ── Global geopolitical news summary ──
+    try:
+        from backend.global_news_fetcher import get_global_news_summary
+        global_summary = get_global_news_summary()
+        if global_summary.get("available"):
+            context["global_geo"] = {
+                "severity": global_summary.get("severity", "UNKNOWN"),
+                "severity_description": global_summary.get("severity_description", ""),
+                "headline_count": global_summary.get("headline_count", 0),
+                "oil_war_overlap": global_summary.get("oil_war_overlap_count", 0),
+                "categories": global_summary.get("categories", {}),
+                "top_headlines": global_summary.get("top_headlines", [])[:10],
+            }
+    except Exception as e:
+        logger.debug(f"Global geo context unavailable: {e}")
+
+    context["available"] = bool(context["nikkei"] or context["kospi"] or context["crude"] or context["global_geo"])
     return context
 
 
@@ -1931,6 +1976,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     symbol=symbol,
                     crude_data=_crude_for_geo,
                     stock_health=_stock_health,
+                    asian_market_data=asian_status if asian_signal > 0 else None,
                 )
 
                 geo_adjustment_data = build_geopolitical_daily_adjustments(
@@ -1941,6 +1987,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     interpretation=geo_interpretation,
                     enable_ai_blend=geo_enabled,
                     stock_health=_stock_health,
+                    asian_market_data=asian_status if asian_signal > 0 else None,
                 )
 
                 current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
@@ -1949,13 +1996,106 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     baseline_with_current,
                     geo_adjustment_data.get("adjustments", []),
                 )
-                # Asian crash day: dampen confidence on bullish predictions
-                if asian_signal >= 0.5 and predictions_with_geo:
-                    dampener = 0.85 if asian_signal >= 1.0 else 0.92
+                # ----- ASIAN MARKET SIGNAL AMPLIFICATION (bidirectional) -----
+                # Asian markets open 4-5 hours before PSX and are highly predictive.
+                # This is NOT just crash protection — it amplifies in BOTH directions.
+                if predictions_with_geo and asian_signal > 0:
+                    nk_pct = asian_status.get("nikkei", {}).get("change_pct", 0) or 0
+                    ks_pct = asian_status.get("kospi", {}).get("change_pct", 0) or 0
+                    asian_avg = (nk_pct + ks_pct) / 2.0
+                    severity = asian_status.get("crash_severity", "none")
+
+                    if severity == "severe":
+                        # Both Asian markets down 2%+: slash bullish confidence by 50%,
+                        # reduce geo adjustment magnitude by 60%
+                        for pred in predictions_with_geo:
+                            if isinstance(pred, dict):
+                                if pred.get("direction", "").lower() in ("up", "bullish"):
+                                    if "confidence" in pred:
+                                        pred["confidence"] = round(pred["confidence"] * 0.50, 2)
+                                if pred.get("sentiment_adjustment_pct", 0) > 0:
+                                    pred["sentiment_adjustment_pct"] = round(
+                                        pred["sentiment_adjustment_pct"] * 0.40, 4)
+                                    if "base_price" in pred and pred["base_price"] > 0:
+                                        pred["predicted_price"] = round(
+                                            pred["base_price"] * (1 + pred["sentiment_adjustment_pct"] / 100.0), 2)
+
+                    elif severity == "moderate":
+                        # One Asian market down 2%+: slash bullish confidence by 30%,
+                        # reduce geo adjustment magnitude by 40%
+                        for pred in predictions_with_geo:
+                            if isinstance(pred, dict):
+                                if pred.get("direction", "").lower() in ("up", "bullish"):
+                                    if "confidence" in pred:
+                                        pred["confidence"] = round(pred["confidence"] * 0.70, 2)
+                                if pred.get("sentiment_adjustment_pct", 0) > 0:
+                                    pred["sentiment_adjustment_pct"] = round(
+                                        pred["sentiment_adjustment_pct"] * 0.60, 4)
+                                    if "base_price" in pred and pred["base_price"] > 0:
+                                        pred["predicted_price"] = round(
+                                            pred["base_price"] * (1 + pred["sentiment_adjustment_pct"] / 100.0), 2)
+
+                    elif severity == "mild":
+                        # Asian markets under mild pressure: 15% confidence cut on bullish
+                        for pred in predictions_with_geo:
+                            if isinstance(pred, dict):
+                                if pred.get("direction", "").lower() in ("up", "bullish"):
+                                    if "confidence" in pred:
+                                        pred["confidence"] = round(pred["confidence"] * 0.85, 2)
+
+                    elif asian_avg > 1.0 and nk_pct > 0.5 and ks_pct > 0.5:
+                        # BULLISH AMPLIFICATION: Both Asian markets up >0.5%, avg >1%
+                        # Boost bullish confidence by 15%, amplify positive adjustments by 20%
+                        for pred in predictions_with_geo:
+                            if isinstance(pred, dict):
+                                if pred.get("direction", "").lower() in ("up", "bullish"):
+                                    if "confidence" in pred:
+                                        pred["confidence"] = round(min(0.99, pred["confidence"] * 1.15), 2)
+                                if pred.get("sentiment_adjustment_pct", 0) > 0:
+                                    pred["sentiment_adjustment_pct"] = round(
+                                        pred["sentiment_adjustment_pct"] * 1.20, 4)
+                                    if "base_price" in pred and pred["base_price"] > 0:
+                                        pred["predicted_price"] = round(
+                                            pred["base_price"] * (1 + pred["sentiment_adjustment_pct"] / 100.0), 2)
+
+                    # Recalculate upside_potential after price adjustments
                     for pred in predictions_with_geo:
-                        if isinstance(pred, dict) and pred.get("direction", "").lower() in ("up", "bullish"):
-                            if "confidence" in pred:
-                                pred["confidence"] = round(pred["confidence"] * dampener, 2)
+                        if isinstance(pred, dict) and pred.get("current_price", 0) > 0 and "predicted_price" in pred:
+                            pred["upside_potential"] = round(
+                                (pred["predicted_price"] / pred["current_price"] - 1) * 100, 2)
+
+                # Build human-readable geo reasoning from LLM + crude data + interpretation
+                geo_reasoning_parts = []
+
+                # From LLM trajectory assessment (ticker-specific impact)
+                _trajectory_data = (shock_data.get("trajectory") or {}) if isinstance(shock_data.get("trajectory"), dict) else {}
+                _llm_data = _trajectory_data.get("llm_assessment") or {}
+                if _llm_data.get("ticker_impact_summary"):
+                    geo_reasoning_parts.append(_llm_data["ticker_impact_summary"])
+                elif _llm_data.get("reasoning"):
+                    # Truncate reasoning for display; build impact hint from severity + market_impact
+                    _reasoning = _llm_data["reasoning"][:250]
+                    _impact_pct = _llm_data.get("market_impact_pct", 0)
+                    _severity = _llm_data.get("severity", 0)
+                    if _impact_pct and _severity:
+                        _impact_dir = "BULLISH" if _impact_pct > 0 else "BEARISH"
+                        _reasoning = f"[Severity {_severity}/10, {_impact_dir} {abs(_impact_pct):.1f}%] {_reasoning}"
+                    geo_reasoning_parts.append(_reasoning)
+
+                # From crude oil data
+                _crude_price = (_crude_for_geo or {}).get("oil_close")
+                _crude_change = (_crude_for_geo or {}).get("oil_change_pct")
+                if _crude_price and _crude_change:
+                    _dir = "up" if _crude_change > 0 else "down"
+                    geo_reasoning_parts.append(
+                        f"Crude oil at ${_crude_price}/bbl ({_crude_change:+.1f}% {_dir})"
+                    )
+
+                # From geo interpretation
+                if geo_interpretation.get("reason"):
+                    geo_reasoning_parts.append(geo_interpretation["reason"])
+
+                geo_reasoning = " | ".join(geo_reasoning_parts) if geo_reasoning_parts else ""
 
                 geo_comparison.update(
                     {
@@ -1971,6 +2111,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                             "crude": _crude_for_geo,
                         },
                         "stock_health": _stock_health or {},
+                        "geo_reasoning": geo_reasoning,
+                        "geo_reasoning_parts": geo_reasoning_parts,
                     }
                 )
 
