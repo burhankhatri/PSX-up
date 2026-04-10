@@ -175,7 +175,7 @@ def _build_geo_macro_prompt_context() -> dict:
         "global_geo": {},
     }
     try:
-        from backend.external_features import fetch_asian_market_realtime, fetch_commodities
+        from backend.external_features import fetch_asian_market_realtime, fetch_commodities, fetch_pakistan_fuel_prices
     except Exception:
         return context
 
@@ -189,16 +189,34 @@ def _build_geo_macro_prompt_context() -> dict:
     try:
         commodities = fetch_commodities(period="1mo")
         if commodities is not None and not commodities.empty:
-            oil_close = pd.to_numeric(commodities.get("oil_close"), errors="coerce").iloc[-1] if "oil_close" in commodities.columns else np.nan
-            oil_change = pd.to_numeric(commodities.get("oil_change"), errors="coerce").iloc[-1] if "oil_change" in commodities.columns else np.nan
-            oil_trend = pd.to_numeric(commodities.get("oil_trend"), errors="coerce").iloc[-1] if "oil_trend" in commodities.columns else np.nan
+            def _last_val(col):
+                if col in commodities.columns:
+                    v = pd.to_numeric(commodities[col], errors="coerce").iloc[-1]
+                    return round(float(v), 4) if pd.notna(v) else None
+                return None
+
             context["crude"] = {
-                "oil_close": round(float(oil_close), 2) if pd.notna(oil_close) else None,
-                "oil_change_pct": round(float(oil_change) * 100.0, 2) if pd.notna(oil_change) else None,
-                "oil_trend_pct": round(float(oil_trend) * 100.0, 2) if pd.notna(oil_trend) else None,
+                "oil_close": _last_val("oil_close"),
+                "oil_change_pct": round(_last_val("oil_change") * 100, 2) if _last_val("oil_change") is not None else None,
+                "oil_trend_pct": round(_last_val("oil_trend") * 100, 2) if _last_val("oil_trend") is not None else None,
+                "brent_close": _last_val("brent_close"),
+                "brent_change_pct": round(_last_val("brent_change") * 100, 2) if _last_val("brent_change") is not None else None,
+                "brent_trend_pct": round(_last_val("brent_trend") * 100, 2) if _last_val("brent_trend") is not None else None,
+                "natgas_close": _last_val("natgas_close"),
+                "natgas_change_pct": round(_last_val("natgas_change") * 100, 2) if _last_val("natgas_change") is not None else None,
+                "natgas_trend_pct": round(_last_val("natgas_trend") * 100, 2) if _last_val("natgas_trend") is not None else None,
+                "gold_close": _last_val("gold_close"),
+                "gold_change_pct": round(_last_val("gold_change") * 100, 2) if _last_val("gold_change") is not None else None,
+                "gold_trend_pct": round(_last_val("gold_trend") * 100, 2) if _last_val("gold_trend") is not None else None,
             }
     except Exception:
         pass
+
+    # Pakistan local fuel prices (OGRA-regulated)
+    try:
+        context["pk_fuel"] = fetch_pakistan_fuel_prices()
+    except Exception:
+        context["pk_fuel"] = {}
 
     # ── Global geopolitical news summary ──
     try:
@@ -1279,7 +1297,7 @@ def _run_shadow_comparison(
     news_items = geo_news_items
     if geo_news_diagnostics:
         comparison["overlay_news_diagnostics"] = geo_news_diagnostics
-    shock_data = detect_geopolitical_shocks(news_items, symbol) if news_items else {}
+    shock_data = detect_geopolitical_shocks(news_items, symbol, macro_context=None) if news_items else {}
     geo_interpretation = build_geo_interpretation(
         news_items=news_items,
         geo_features=geo_features or {},
@@ -1954,7 +1972,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     asian_signal = 0.0
 
                 # Shock detection – emergency multiplier for extreme events
-                shock_data = detect_geopolitical_shocks(news_items, symbol)
+                shock_data = detect_geopolitical_shocks(news_items, symbol, macro_context=geo_prompt_context)
 
                 # A5/A6: compute crude confirmation and stock health for geo gate
                 _crude_for_geo = geo_prompt_context.get("crude", {}) if geo_prompt_context else {}

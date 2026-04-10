@@ -1084,6 +1084,86 @@ if COMMODITY_AVAILABLE:
         return {"success": False, "error": "No cached analysis available"}
 
 # ============================================================================
+# OIL TRACKER - Live & Historical Oil/Energy Prices
+# ============================================================================
+
+@app.get("/api/oil-tracker")
+async def get_oil_tracker():
+    """Fetch current and historical prices for key oil/energy benchmarks."""
+    try:
+        import yfinance as yf
+        import numpy as np
+
+        tickers = {
+            "CL=F": {"name": "WTI Crude Oil", "unit": "USD/bbl", "emoji": "🛢️"},
+            "BZ=F": {"name": "Brent Crude Oil", "unit": "USD/bbl", "emoji": "🛢️"},
+            "HO=F": {"name": "Heating Oil", "unit": "USD/gal", "emoji": "🔥"},
+            "NG=F": {"name": "Natural Gas", "unit": "USD/MMBtu", "emoji": "💨"},
+            "RB=F": {"name": "RBOB Gasoline", "unit": "USD/gal", "emoji": "⛽"},
+        }
+
+        results = []
+        for symbol, meta in tickers.items():
+            try:
+                tk = yf.Ticker(symbol)
+                hist = tk.history(period="6mo")
+                if hist.empty:
+                    continue
+
+                close = hist["Close"]
+                current = float(close.iloc[-1])
+                prev_close = float(close.iloc[-2]) if len(close) > 1 else current
+                change = current - prev_close
+                change_pct = (change / prev_close * 100) if prev_close else 0
+
+                # Build sparkline data (last 30 trading days)
+                spark = close.tail(30)
+                sparkline = [
+                    {"date": d.strftime("%Y-%m-%d"), "price": round(float(p), 2)}
+                    for d, p in zip(spark.index, spark.values)
+                ]
+
+                # 52-week high/low
+                yearly = close.tail(252) if len(close) >= 252 else close
+                high_52w = float(yearly.max())
+                low_52w = float(yearly.min())
+
+                # Simple moving averages
+                sma20 = float(close.tail(20).mean()) if len(close) >= 20 else None
+                sma50 = float(close.tail(50).mean()) if len(close) >= 50 else None
+
+                results.append({
+                    "symbol": symbol,
+                    "name": meta["name"],
+                    "unit": meta["unit"],
+                    "emoji": meta["emoji"],
+                    "current": round(current, 2),
+                    "prev_close": round(prev_close, 2),
+                    "change": round(change, 2),
+                    "change_pct": round(change_pct, 2),
+                    "high_52w": round(high_52w, 2),
+                    "low_52w": round(low_52w, 2),
+                    "sma20": round(sma20, 2) if sma20 else None,
+                    "sma50": round(sma50, 2) if sma50 else None,
+                    "sparkline": sparkline,
+                })
+            except Exception as e:
+                print(f"⚠️ Oil tracker: failed to fetch {symbol}: {e}")
+                continue
+
+        return {
+            "success": True,
+            "updated_at": datetime.now().isoformat(),
+            "commodities": results,
+        }
+
+    except ImportError:
+        return {"success": False, "error": "yfinance not installed"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
 # HISTORY PERSISTENCE
 # ============================================================================
 

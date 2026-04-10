@@ -87,6 +87,46 @@ def get_live_tweak_config() -> TweakConfig:
     )
 
 
+PREDICTION_LOG_PATH = Path(__file__).resolve().parent.parent / "data" / "prediction_logs" / "prediction_log.json"
+
+
+def compute_per_symbol_bias(symbol: str, lookback_n: int = 20) -> float:
+    """
+    Compute adaptive bias correction from recent evaluated predictions.
+    Returns a correction value to ADD to the raw prediction (positive = nudge upward).
+    """
+    if not PREDICTION_LOG_PATH.exists():
+        return 0.0
+    try:
+        with open(PREDICTION_LOG_PATH, "r") as f:
+            log = json.load(f)
+    except Exception:
+        return 0.0
+
+    evaluated = [
+        p for p in log
+        if p.get("symbol") == symbol
+        and p.get("evaluated")
+        and p.get("predicted_change_pct") is not None
+        and p.get("actual_change_pct") is not None
+    ]
+    if len(evaluated) < 5:
+        return 0.0
+
+    # Take last N evaluated predictions
+    evaluated.sort(key=lambda x: x.get("prediction_date", ""))
+    recent = evaluated[-lookback_n:]
+
+    # signed_bias > 0 means model has been predicting too high (bullish bias)
+    # signed_bias < 0 means model has been predicting too low (bearish bias)
+    signed_bias = sum(
+        p["predicted_change_pct"] - p["actual_change_pct"] for p in recent
+    ) / len(recent)
+
+    # Partial correction (50%) to avoid overcorrecting
+    return round(-0.5 * signed_bias, 4)
+
+
 def apply_prediction_tweaks(predictions: List[Dict], config: TweakConfig) -> List[Dict]:
     """
     Apply tiny, reversible post-processing tweaks to prediction paths.
@@ -99,21 +139,36 @@ def apply_prediction_tweaks(predictions: List[Dict], config: TweakConfig) -> Lis
 
     out = deepcopy(predictions)
     base_price = _derive_base_price(out)
+
+    # Use adaptive per-symbol bias if available, else fall back to static config
+    symbol = None
+    for p in out:
+        symbol = p.get("symbol") or p.get("ticker")
+        if symbol:
+            break
+    adaptive_bias = compute_per_symbol_bias(symbol) if symbol else 0.0
+    bias_correction = adaptive_bias if adaptive_bias != 0.0 else config.bias_correction_pct
+
     for pred in out:
         raw_up = float(pred.get("upside_potential", 0) or 0)
         conf = float(pred.get("confidence", 0) or 0)
         williams = str(pred.get("williams_signal", "") or "").upper()
 
-        adjusted = raw_up + config.bias_correction_pct
+        adjusted = raw_up + bias_correction
+        pred["adaptive_bias_correction"] = adaptive_bias
         adjusted = _clamp(adjusted, config.max_downside_cap_pct, config.max_upside_cap_pct)
 
         if conf < config.min_confidence_for_direction:
             adjusted = 0.0
 
         if config.use_williams_conflict_brake and williams in {"UP", "DOWN"}:
+            williams_conf = float(pred.get("williams_confidence", 0) or 0)
             pred_dir = "UP" if adjusted > 0 else ("DOWN" if adjusted < 0 else "NEUTRAL")
             if (pred_dir == "UP" and williams == "DOWN") or (pred_dir == "DOWN" and williams == "UP"):
-                adjusted = 0.0
+                # Only dampen (not zero) when Williams confidence is meaningful
+                if williams_conf > 0.60:
+                    adjusted *= 0.5
+                # Low-confidence Williams signal: leave prediction unchanged
 
         if abs(adjusted) < config.neutral_band_pct:
             adjusted = 0.0

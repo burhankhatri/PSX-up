@@ -44,8 +44,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Groq / LLM availability (reuse same client as sentiment_analyzer)
+# LLM availability: Anthropic (primary), Groq (fallback)
 # ---------------------------------------------------------------------------
+try:
+    import anthropic
+    _ANTHROPIC_AVAILABLE = True
+except ImportError:
+    _ANTHROPIC_AVAILABLE = False
+
 try:
     from groq import Groq
     _GROQ_AVAILABLE = True
@@ -53,8 +59,16 @@ except ImportError:
     _GROQ_AVAILABLE = False
 
 
+def _get_anthropic_client():
+    """Get an Anthropic client (primary LLM)."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    return anthropic.Anthropic(api_key=api_key)
+
+
 def _get_groq_client():
-    """Get a Groq client (shared pattern with sentiment_analyzer)."""
+    """Get a Groq client (fallback LLM)."""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         return None
@@ -596,9 +610,11 @@ Return only valid JSON matching the requested schema."""
 def llm_assess_trajectory(
     news_items: List[Dict],
     symbol: Optional[str] = None,
+    macro_context: Optional[Dict] = None,
 ) -> Optional[Dict]:
     """
-    Use Groq LLM (llama-3.3-70b) to assess geopolitical trajectory from news.
+    Use Anthropic Claude (primary) or Groq LLM (fallback) to assess geopolitical
+    trajectory from news.
 
     The LLM reads raw headlines and produces a structured assessment that
     captures nuance keyword matching cannot (e.g. sarcasm, context-dependent
@@ -617,11 +633,9 @@ def llm_assess_trajectory(
             "reasoning": str
         }
     """
-    if not _GROQ_AVAILABLE or not news_items:
+    if not _ANTHROPIC_AVAILABLE and not _GROQ_AVAILABLE:
         return None
-
-    client = _get_groq_client()
-    if not client:
+    if not news_items:
         return None
 
     current_date = datetime.now().strftime("%Y-%m-%d")
@@ -669,6 +683,81 @@ def llm_assess_trajectory(
         energy_supply_detected=energy_supply_detected,
     )
 
+    # Build live commodity & fuel price block from macro context
+    commodity_block = ""
+    if macro_context and macro_context.get("available"):
+        lines = []
+        crude = macro_context.get("crude", {})
+        pk_fuel = macro_context.get("pk_fuel", {})
+
+        if crude:
+            lines.append("COMMODITY PRICES (LIVE DATA — use these exact numbers in your analysis):")
+            lines.append("")
+            lines.append("INTERNATIONAL OIL:")
+            brent_close = crude.get("brent_close")
+            brent_chg = crude.get("brent_change_pct")
+            brent_trend = crude.get("brent_trend_pct")
+            if brent_close:
+                direction = "rose" if (brent_chg or 0) >= 0 else "fell"
+                trend_dir = "up" if (brent_trend or 0) >= 0 else "down"
+                lines.append(f"- Brent Crude Oil: ${brent_close:.2f}/bbl ({direction} {brent_chg:+.1f}% in the past day, {trend_dir} {brent_trend:+.1f}% over 20 days)")
+
+            oil_close = crude.get("oil_close")
+            oil_chg = crude.get("oil_change_pct")
+            oil_trend = crude.get("oil_trend_pct")
+            if oil_close:
+                direction = "rose" if (oil_chg or 0) >= 0 else "fell"
+                trend_dir = "up" if (oil_trend or 0) >= 0 else "down"
+                lines.append(f"- WTI Crude Oil: ${oil_close:.2f}/bbl ({direction} {oil_chg:+.1f}% in the past day, {trend_dir} {oil_trend:+.1f}% over 20 days)")
+
+            natgas_close = crude.get("natgas_close")
+            natgas_chg = crude.get("natgas_change_pct")
+            natgas_trend = crude.get("natgas_trend_pct")
+            if natgas_close:
+                direction = "rose" if (natgas_chg or 0) >= 0 else "fell"
+                trend_dir = "up" if (natgas_trend or 0) >= 0 else "down"
+                lines.append(f"- Natural Gas: ${natgas_close:.2f}/MMBtu ({direction} {natgas_chg:+.1f}% in the past day, {trend_dir} {natgas_trend:+.1f}% over 20 days)")
+
+            gold_close = crude.get("gold_close")
+            gold_chg = crude.get("gold_change_pct")
+            gold_trend = crude.get("gold_trend_pct")
+            if gold_close:
+                direction = "rose" if (gold_chg or 0) >= 0 else "fell"
+                trend_dir = "up" if (gold_trend or 0) >= 0 else "down"
+                lines.append(f"- Gold: ${gold_close:.2f}/oz ({direction} {gold_chg:+.1f}% in the past day, {trend_dir} {gold_trend:+.1f}% over 20 days)")
+
+        if pk_fuel and pk_fuel.get("available"):
+            lines.append("")
+            lines.append("PAKISTAN LOCAL FUEL (OGRA-regulated, revised fortnightly):")
+            petrol_price = pk_fuel.get("petrol_price_rs")
+            petrol_chg = pk_fuel.get("petrol_change_rs")
+            petrol_pct = pk_fuel.get("petrol_change_pct")
+            diesel_price = pk_fuel.get("diesel_price_rs")
+            diesel_chg = pk_fuel.get("diesel_change_rs")
+
+            if petrol_price:
+                chg_str = f" (changed Rs{petrol_chg:+.0f} this revision, {petrol_pct:+.1f}%)" if petrol_chg and petrol_pct else ""
+                lines.append(f"- Petrol: Rs{petrol_price:.2f}/litre{chg_str}")
+            elif petrol_chg:
+                lines.append(f"- Petrol: price change Rs{petrol_chg:+.0f} this revision")
+
+            if diesel_price:
+                chg_str = f" (changed Rs{diesel_chg:+.0f} this revision)" if diesel_chg else ""
+                lines.append(f"- Diesel/HSD: Rs{diesel_price:.2f}/litre{chg_str}")
+            elif diesel_chg:
+                lines.append(f"- Diesel/HSD: price change Rs{diesel_chg:+.0f} this revision")
+
+            # Flag massive fuel price changes
+            if petrol_chg and abs(petrol_chg) >= 10:
+                magnitude = "MASSIVE" if abs(petrol_chg) >= 50 else "SIGNIFICANT" if abs(petrol_chg) >= 20 else "NOTABLE"
+                direction = "hike" if petrol_chg > 0 else "cut"
+                lines.append(f"- ⚠️ {magnitude} fuel price {direction} of Rs{abs(petrol_chg):.0f}. "
+                             f"For upstream E&P (OGDC, PPL, MARI) this is {'BULLISH' if petrol_chg > 0 else 'BEARISH'} (higher oil = higher revenue). "
+                             f"For transport/industrial consumers this is {'BEARISH' if petrol_chg > 0 else 'BULLISH'} (cost impact).")
+
+        if lines:
+            commodity_block = "\n".join(lines) + "\n\n"
+
     prompt = f"""You are assessing the geopolitical trajectory for a Pakistan Stock Exchange ticker.
 
 Today is {current_date}. Analyse these recent news headlines and assess the geopolitical situation
@@ -677,7 +766,7 @@ affecting this ticker on the Pakistan Stock Exchange.
 NEWS HEADLINES:
 {news_block}
 
-TASK: Produce a JSON assessment with these fields:
+{commodity_block}TASK: Produce a JSON assessment with these fields:
 
 1. "trajectory" (string): One of:
    - "ceasefire" — a ceasefire, peace deal, or definitive de-escalation has been announced/confirmed
@@ -720,50 +809,91 @@ IMPORTANT:
 - ALWAYS tie your reasoning to the SPECIFIC TICKER being analyzed.
 - For upstream E&P tickers (OGDC, PPL, POL, MARI), explain WHY oil surges are bullish (revenue).
 - For downstream/import-dependent tickers (autos, cement, steel), explain WHY energy shocks are bearish (costs).
-- Include concrete numbers when available (oil price, % changes, casualties, ships blocked).
+- Use the EXACT commodity and fuel prices provided above in your ticker_impact_summary. Do NOT guess oil prices — use the live data.
+- Pay special attention to Pakistan petrol/diesel price changes — large hikes (>Rs10) are MAJOR events for PSX energy stocks.
+- For energy stocks, reference the actual Brent/WTI price and daily % change in your reasoning.
 
 Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
 
-    try:
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=1024,
-        )
-        raw = completion.choices[0].message.content.strip()
-        result = json.loads(raw)
+    raw = None
+    llm_source = None
 
-        # Validate required fields
-        valid_trajectories = {"escalating", "de_escalating", "ceasefire", "stalemate"}
-        if result.get("trajectory") not in valid_trajectories:
-            result["trajectory"] = "stalemate"
+    # Try Anthropic first (primary)
+    if _ANTHROPIC_AVAILABLE:
+        try:
+            client = _get_anthropic_client()
+            if client:
+                logger.info("Using Anthropic Claude for trajectory assessment (primary)")
+                message = client.messages.create(
+                    model="claude-opus-4-6",
+                    max_tokens=1024,
+                    temperature=0.3,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                raw = message.content[0].text.strip()
+                llm_source = "anthropic/claude-opus-4-6"
+        except Exception as e:
+            logger.warning(f"Anthropic trajectory assessment failed (falling back to Groq): {e}")
+            raw = None
 
-        result["severity"] = max(1, min(10, int(result.get("severity", 5))))
-        result["ceasefire_probability"] = max(0.0, min(1.0, float(result.get("ceasefire_probability", 0.0))))
-        result["market_impact_pct"] = float(result.get("market_impact_pct", 0.0))
-        result["key_events"] = result.get("key_events", [])[:5]
-        result["reasoning"] = str(result.get("reasoning", ""))[:500]
-        result["ticker_impact_summary"] = str(result.get("ticker_impact_summary", ""))[:300]
-        result["llm_source"] = "groq/llama-3.3-70b"
+    # Fallback to Groq
+    if raw is None and _GROQ_AVAILABLE:
+        try:
+            client = _get_groq_client()
+            if client:
+                logger.info("Using Groq Llama for trajectory assessment (fallback)")
+                completion = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.3,
+                    max_tokens=1024,
+                )
+                raw = completion.choices[0].message.content.strip()
+                llm_source = "groq/llama-3.3-70b"
+        except Exception as e:
+            logger.warning(f"Groq trajectory assessment failed: {e}")
+            return None
 
-        logger.info(f"LLM trajectory assessment: {result['trajectory']} (severity={result['severity']}, "
-                     f"ceasefire_prob={result['ceasefire_probability']:.2f})")
-        return result
-
-    except Exception as e:
-        logger.warning(f"LLM trajectory assessment failed: {e}")
+    if raw is None:
         return None
+
+    try:
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.strip("`").removeprefix("json").strip()
+        result = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON parse error from {llm_source}: {e}")
+        return None
+
+    # Validate required fields
+    valid_trajectories = {"escalating", "de_escalating", "ceasefire", "stalemate"}
+    if result.get("trajectory") not in valid_trajectories:
+        result["trajectory"] = "stalemate"
+
+    result["severity"] = max(1, min(10, int(result.get("severity", 5))))
+    result["ceasefire_probability"] = max(0.0, min(1.0, float(result.get("ceasefire_probability", 0.0))))
+    result["market_impact_pct"] = float(result.get("market_impact_pct", 0.0))
+    result["key_events"] = result.get("key_events", [])[:5]
+    result["reasoning"] = str(result.get("reasoning", ""))[:500]
+    result["ticker_impact_summary"] = str(result.get("ticker_impact_summary", ""))[:300]
+    result["llm_source"] = llm_source
+
+    logger.info(f"LLM trajectory assessment: {result['trajectory']} (severity={result['severity']}, "
+                 f"ceasefire_prob={result['ceasefire_probability']:.2f}, source={llm_source})")
+    return result
 
 
 def assess_conflict_trajectory(
     news_items: List[Dict],
     use_llm: bool = True,
     symbol: Optional[str] = None,
+    macro_context: Optional[Dict] = None,
 ) -> Dict:
     """
     Hybrid assessment: combines keyword matching with LLM analysis.
@@ -861,7 +991,7 @@ def assess_conflict_trajectory(
     # ----- Step 2: LLM assessment (if enabled and available) -----
     llm_result = None
     if use_llm:
-        llm_result = llm_assess_trajectory(news_items, symbol=symbol)
+        llm_result = llm_assess_trajectory(news_items, symbol=symbol, macro_context=macro_context)
 
     # ----- Step 3: Merge keyword + LLM results -----
     if llm_result is not None:
@@ -909,7 +1039,7 @@ def assess_conflict_trajectory(
             "market_impact_pct": llm_result["market_impact_pct"],
             "key_events": llm_result["key_events"],
             "reasoning": llm_result["reasoning"],
-            "llm_source": llm_result.get("llm_source", "groq/llama-3.3-70b"),
+            "llm_source": llm_result.get("llm_source", "unknown"),
         }
 
         return {
@@ -941,6 +1071,7 @@ def assess_conflict_trajectory(
 def detect_geopolitical_shocks(
     news_items: List[Dict],
     symbol: Optional[str] = None,
+    macro_context: Optional[Dict] = None,
 ) -> Dict:
     """
     Scan news for shock-level geopolitical events.
@@ -1000,7 +1131,7 @@ def detect_geopolitical_shocks(
     num_shocks = len(shock_events)
 
     # Assess trajectory: is the situation getting better or worse?
-    trajectory = assess_conflict_trajectory(news_items, symbol=symbol)
+    trajectory = assess_conflict_trajectory(news_items, symbol=symbol, macro_context=macro_context)
 
     # Emergency multiplier: base from max severity, compounds with more shocks
     # (Recalibrated 2026-03: old values 2.5/1.8/1.3 with 30% compounding

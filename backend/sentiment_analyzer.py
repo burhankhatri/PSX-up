@@ -84,7 +84,15 @@ except ImportError:
     SELENIUM_AVAILABLE = False
     print("⚠️  Selenium not installed")
 
-# Groq imports
+# Anthropic imports (primary LLM)
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    print("⚠️  Anthropic not installed")
+
+# Groq imports (fallback LLM)
 try:
     from groq import Groq
     GROQ_AVAILABLE = True
@@ -529,11 +537,19 @@ def fetch_news_curl(search_term: str) -> List[Dict]:
 
 
 # ============================================================================
-# GROQ INTEGRATION
+# LLM INTEGRATION (Anthropic primary, Groq fallback)
 # ============================================================================
 
+def get_anthropic_client():
+    """Get Anthropic client"""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    return anthropic.Anthropic(api_key=api_key)
+
+
 def get_groq_client():
-    """Get Groq client"""
+    """Get Groq client (fallback)"""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ValueError("GROQ_API_KEY not set")
@@ -547,15 +563,15 @@ def analyze_with_ai(
     enriched_data: Dict = None,
     geo_macro_context: Optional[Dict[str, Any]] = None,
 ) -> Dict:
-    """Use Groq (Llama 3.3 70B) for intelligent sentiment analysis with anti-hallucination guardrails.
-    
+    """Use Anthropic Claude (primary) or Groq Llama (fallback) for intelligent sentiment analysis.
+
     Now enhanced with:
     - Full article content from BR Research
     - Live fundamental data (P/E, dividend yield)
     - Quality score for trend dampening guidance
     """
-    
-    if not GROQ_AVAILABLE:
+
+    if not ANTHROPIC_AVAILABLE and not GROQ_AVAILABLE:
         return fallback_analysis(news_items)
     
     # Get current date for context
@@ -708,41 +724,75 @@ ANTI-HALLUCINATION CHECKLIST before responding:
 
 Return ONLY valid JSON."""
 
-    try:
-        client = get_groq_client()
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=1024,
-            temperature=0.05  # Lower temperature = more conservative
-        )
-        
-        response_text = completion.choices[0].message.content.strip()
-        result = json.loads(response_text)
-        
-        result['model'] = 'llama-3.3-70b-versatile'
-        result['analyzed_at'] = datetime.now().isoformat()
-        
-        # Rename verified_events to key_events for compatibility
-        if 'verified_events' in result:
-            result['key_events'] = result.pop('verified_events')
-        
-        # Map to simpler signal for UI
-        signal_map = {
-            'STRONG_BUY': 'BULLISH',
-            'BUY': 'BULLISH',
-            'HOLD': 'NEUTRAL',
-            'SELL': 'BEARISH',
-            'STRONG_SELL': 'BEARISH'
-        }
-        result['signal_simple'] = signal_map.get(result.get('signal', 'HOLD'), 'NEUTRAL')
-        
-        return result
-        
-    except Exception as e:
-        print(f"❌ Groq error: {e}")
+    response_text = None
+    model_used = None
+
+    # Try Anthropic first (primary)
+    if ANTHROPIC_AVAILABLE:
+        try:
+            client = get_anthropic_client()
+            if client:
+                print("   🔹 Using Anthropic Claude (primary)...")
+                message = client.messages.create(
+                    model="claude-opus-4-6",
+                    max_tokens=1024,
+                    temperature=0.05,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                response_text = message.content[0].text.strip()
+                model_used = "claude-opus-4-6"
+        except Exception as e:
+            print(f"⚠️ Anthropic error (falling back to Groq): {e}")
+            response_text = None
+
+    # Fallback to Groq
+    if response_text is None and GROQ_AVAILABLE:
+        try:
+            print("   🔹 Using Groq Llama (fallback)...")
+            client = get_groq_client()
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                max_tokens=1024,
+                temperature=0.05,
+            )
+            response_text = completion.choices[0].message.content.strip()
+            model_used = "llama-3.3-70b-versatile"
+        except Exception as e:
+            print(f"❌ Groq error: {e}")
+            return fallback_analysis(news_items)
+
+    if response_text is None:
         return fallback_analysis(news_items)
+
+    try:
+        # Strip markdown fences if present
+        if response_text.startswith("```"):
+            response_text = response_text.strip("`").removeprefix("json").strip()
+        result = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parse error from {model_used}: {e}")
+        return fallback_analysis(news_items)
+
+    result['model'] = model_used
+    result['analyzed_at'] = datetime.now().isoformat()
+
+    # Rename verified_events to key_events for compatibility
+    if 'verified_events' in result:
+        result['key_events'] = result.pop('verified_events')
+
+    # Map to simpler signal for UI
+    signal_map = {
+        'STRONG_BUY': 'BULLISH',
+        'BUY': 'BULLISH',
+        'HOLD': 'NEUTRAL',
+        'SELL': 'BEARISH',
+        'STRONG_SELL': 'BEARISH'
+    }
+    result['signal_simple'] = signal_map.get(result.get('signal', 'HOLD'), 'NEUTRAL')
+
+    return result
 
 
 def fallback_analysis(news_items: List[Dict]) -> Dict:
@@ -931,8 +981,9 @@ def get_stock_sentiment(
             source = item.get('source_name', item.get('source', 'Unknown'))
             print(f"   • [{source}] {item['title'][:70]}...")
     
-    # Analyze with AI (Groq) - NOW WITH ENRICHED DATA!
-    print("\n🤖 Analyzing with Groq (Llama 3.3) + Enriched Context...")
+    # Analyze with AI (Anthropic primary, Groq fallback) - NOW WITH ENRICHED DATA!
+    llm_label = "Anthropic Claude" if ANTHROPIC_AVAILABLE and os.getenv("ANTHROPIC_API_KEY") else "Groq Llama 3.3"
+    print(f"\n🤖 Analyzing with {llm_label} + Enriched Context...")
     analysis = analyze_with_ai(
         symbol,
         company_name,
@@ -1110,8 +1161,10 @@ if __name__ == "__main__":
     print("🔮 PSX FORTUNE TELLER - AI-Powered Sentiment Analysis")
     print("="*70)
     print()
-    print(f"✅ Groq: {'Available' if GROQ_AVAILABLE else 'Not Available'}")
-    print(f"✅ API Key: {'Loaded' if os.getenv('GROQ_API_KEY') else 'Missing'}")
+    print(f"✅ Anthropic (primary): {'Available' if ANTHROPIC_AVAILABLE else 'Not Available'}")
+    print(f"   API Key: {'Loaded' if os.getenv('ANTHROPIC_API_KEY') else 'Missing'}")
+    print(f"✅ Groq (fallback): {'Available' if GROQ_AVAILABLE else 'Not Available'}")
+    print(f"   API Key: {'Loaded' if os.getenv('GROQ_API_KEY') else 'Missing'}")
     print()
     
     # Test with a stock

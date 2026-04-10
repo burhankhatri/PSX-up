@@ -69,22 +69,50 @@ SYMBOL_TO_SLUG = {
 }
 
 # News impact categories
-NEWS_IMPACT = {
-    'dividend': {'impact': 0.3, 'duration_days': 30, 'type': 'positive'},
-    'merger': {'impact': 0.5, 'duration_days': 90, 'type': 'positive'},
-    'acquisition': {'impact': 0.4, 'duration_days': 60, 'type': 'positive'},
-    'stock split': {'impact': 0.2, 'duration_days': 14, 'type': 'positive'},
-    'investment': {'impact': 0.4, 'duration_days': 60, 'type': 'positive'},
-    'profit': {'impact': 0.3, 'duration_days': 30, 'type': 'positive'},
-    'revenue increase': {'impact': 0.3, 'duration_days': 30, 'type': 'positive'},
-    'expansion': {'impact': 0.3, 'duration_days': 45, 'type': 'positive'},
-    'privatization': {'impact': 0.4, 'duration_days': 90, 'type': 'neutral'},  # Can go either way
-    'loss': {'impact': -0.3, 'duration_days': 30, 'type': 'negative'},
-    'debt': {'impact': -0.2, 'duration_days': 30, 'type': 'negative'},
-    'lawsuit': {'impact': -0.3, 'duration_days': 60, 'type': 'negative'},
-    'penalty': {'impact': -0.2, 'duration_days': 14, 'type': 'negative'},
-    'regulatory': {'impact': -0.1, 'duration_days': 30, 'type': 'negative'},
-}
+# IMPORTANT: Ordered longest-first because the matching loop breaks on first hit.
+# Context-aware keywords prevent misclassification (e.g. "profit down" != positive).
+NEWS_IMPACT = [
+    # Negative profit/revenue (must come before bare 'profit')
+    ('profit decline', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('profit drop', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('profit down', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('profit falls', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('profit fell', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('profit slump', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('revenue decline', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('revenue drop', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    # Positive profit/revenue
+    ('profit growth', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('profit increase', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('profit surge', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('profit up', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('record profit', {'impact': 0.4, 'duration_days': 30, 'type': 'positive'}),
+    ('profit rise', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('revenue increase', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('revenue growth', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    # Debt context-aware (must come before bare 'debt')
+    ('circular debt plan', {'impact': 0.2, 'duration_days': 30, 'type': 'positive'}),
+    ('debt relief', {'impact': 0.2, 'duration_days': 30, 'type': 'positive'}),
+    ('debt settlement', {'impact': 0.2, 'duration_days': 30, 'type': 'positive'}),
+    ('debt payment', {'impact': 0.2, 'duration_days': 30, 'type': 'positive'}),
+    ('receives', {'impact': 0.2, 'duration_days': 14, 'type': 'positive'}),
+    ('debt crisis', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('debt burden', {'impact': -0.2, 'duration_days': 30, 'type': 'negative'}),
+    ('debt pile', {'impact': -0.2, 'duration_days': 30, 'type': 'negative'}),
+    # Standard keywords
+    ('dividend', {'impact': 0.3, 'duration_days': 30, 'type': 'positive'}),
+    ('merger', {'impact': 0.5, 'duration_days': 90, 'type': 'positive'}),
+    ('acquisition', {'impact': 0.4, 'duration_days': 60, 'type': 'positive'}),
+    ('stock split', {'impact': 0.2, 'duration_days': 14, 'type': 'positive'}),
+    ('investment', {'impact': 0.4, 'duration_days': 60, 'type': 'positive'}),
+    ('expansion', {'impact': 0.3, 'duration_days': 45, 'type': 'positive'}),
+    ('privatization', {'impact': 0.4, 'duration_days': 90, 'type': 'neutral'}),
+    ('loss', {'impact': -0.3, 'duration_days': 30, 'type': 'negative'}),
+    ('debt', {'impact': -0.2, 'duration_days': 30, 'type': 'negative'}),
+    ('lawsuit', {'impact': -0.3, 'duration_days': 60, 'type': 'negative'}),
+    ('penalty', {'impact': -0.2, 'duration_days': 14, 'type': 'negative'}),
+    ('regulatory', {'impact': -0.1, 'duration_days': 30, 'type': 'negative'}),
+]
 
 # Driver lock for thread safety
 _driver_lock = threading.Lock()
@@ -271,7 +299,7 @@ def calculate_news_impact_score(articles: List[Dict]) -> Dict:
         title_lower = article['title'].lower()
         
         # Check for impact keywords
-        for keyword, config in NEWS_IMPACT.items():
+        for keyword, config in NEWS_IMPACT:
             if keyword in title_lower:
                 impact = config['impact']
                 duration = config['duration_days']

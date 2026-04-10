@@ -301,41 +301,217 @@ def fetch_commodities(start_date: str = None, end_date: str = None,
         return pd.DataFrame()
     
     try:
-        # Fetch both commodities
-        if start_date and end_date:
-            oil = yf.download('CL=F', start=start_date, end=end_date, progress=False)
-            gold = yf.download('GC=F', start=start_date, end=end_date, progress=False)
-        else:
-            oil = yf.download('CL=F', period=period, progress=False)
-            gold = yf.download('GC=F', period=period, progress=False)
-        
-        # Handle multi-level columns
-        for df in [oil, gold]:
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-        
-        # Merge on date
-        result = pd.DataFrame({'date': oil.index})
-        
-        if not oil.empty:
-            result['oil_close'] = oil['Close'].values
-            result['oil_change'] = oil['Close'].pct_change().values
-            result['oil_trend'] = (oil['Close'] / oil['Close'].shift(20) - 1).values
-        
-        if not gold.empty:
-            # Align gold to oil dates
-            gold_aligned = gold.reindex(oil.index, method='ffill')
-            result['gold_close'] = gold_aligned['Close'].values
-            result['gold_change'] = gold_aligned['Close'].pct_change().values
-            result['gold_trend'] = (gold_aligned['Close'] / gold_aligned['Close'].shift(20) - 1).values
-        
+        # Fetch all commodities
+        tickers = {'CL=F': 'oil', 'BZ=F': 'brent', 'GC=F': 'gold', 'NG=F': 'natgas'}
+        raw = {}
+        for ticker, name in tickers.items():
+            try:
+                if start_date and end_date:
+                    df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+                else:
+                    df = yf.download(ticker, period=period, progress=False)
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                raw[name] = df
+            except Exception:
+                raw[name] = pd.DataFrame()
+
+        # Use WTI oil as the base index (most liquid)
+        base = raw.get('oil', pd.DataFrame())
+        if base.empty:
+            return pd.DataFrame()
+
+        result = pd.DataFrame({'date': base.index})
+
+        for name, df in raw.items():
+            if df.empty:
+                continue
+            aligned = df.reindex(base.index, method='ffill') if name != 'oil' else df
+            result[f'{name}_close'] = aligned['Close'].values
+            result[f'{name}_change'] = aligned['Close'].pct_change().values
+            result[f'{name}_trend'] = (aligned['Close'] / aligned['Close'].shift(20) - 1).values
+
         result = result.reset_index(drop=True)
-        print(f"✅ Fetched {len(result)} commodity data points")
+        print(f"✅ Fetched {len(result)} commodity data points (WTI, Brent, Gold, NatGas)")
         return result
-        
+
     except Exception as e:
         print(f"❌ Error fetching commodities: {e}")
         return pd.DataFrame()
+
+
+# ============================================================================
+# PAKISTAN LOCAL FUEL PRICES (OGRA-regulated, revised fortnightly)
+# ============================================================================
+
+PK_FUEL_CACHE = Path(__file__).resolve().parent.parent / "data" / "external_cache" / "pk_fuel_prices.json"
+
+
+def fetch_pakistan_fuel_prices(force_refresh: bool = False) -> dict:
+    """
+    Get current Pakistan petrol/diesel prices with change from last revision.
+
+    Returns dict with petrol_price_rs, diesel_price_rs, changes, etc.
+    Uses cached data if fresh (< 12 hours old), otherwise scrapes from news headlines.
+    """
+    # Check cache first
+    if not force_refresh and PK_FUEL_CACHE.exists():
+        try:
+            cached = json.load(open(PK_FUEL_CACHE, "r"))
+            cached_at = cached.get("fetched_at", "")
+            if cached_at:
+                age_hours = (datetime.now() - datetime.fromisoformat(cached_at)).total_seconds() / 3600
+                if age_hours < 12 and cached.get("petrol_price_rs"):
+                    return cached
+        except Exception:
+            pass
+
+    result = {
+        "available": False,
+        "petrol_price_rs": None,
+        "diesel_price_rs": None,
+        "petrol_prev_rs": None,
+        "diesel_prev_rs": None,
+        "petrol_change_rs": None,
+        "diesel_change_rs": None,
+        "petrol_change_pct": None,
+        "diesel_change_pct": None,
+        "effective_date": None,
+        "source": None,
+        "fetched_at": datetime.now().isoformat(),
+    }
+
+    import re as _re
+    import urllib.request
+
+    # Strategy 1 (PRIMARY): Live web scrape via DuckDuckGo
+    try:
+        url = "https://lite.duckduckgo.com/lite/?q=pakistan+petrol+price+per+litre+today"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+            clean = _re.sub(r'<[^>]+>', ' ', html)
+            clean = _re.sub(r'\s+', ' ', clean)
+
+            # Extract ALL petrol price mentions, take the highest (latest OGRA revision)
+            petrol_matches = _re.findall(
+                r'(?:petrol|petrol\s+price)[^.]{0,60}(?:Rs\.?|PKR)\s*(\d{2,3}\.\d{2})',
+                clean, _re.IGNORECASE
+            )
+            if petrol_matches:
+                result["petrol_price_rs"] = max(float(p) for p in petrol_matches)
+                result["source"] = "live_web"
+
+            # Extract diesel/HSD price — take the highest
+            diesel_matches = _re.findall(
+                r'(?:diesel|hsd)[^.]{0,60}(?:Rs\.?|PKR)\s*(\d{2,3}\.\d{2})',
+                clean, _re.IGNORECASE
+            )
+            if diesel_matches:
+                result["diesel_price_rs"] = max(float(p) for p in diesel_matches)
+
+            # Extract price change from snippets like "Rs. 55 per litre increase"
+            change_match = _re.search(
+                r'(?:Rs\.?|PKR)\s*(\d{1,3}(?:\.\d{1,2})?)\s*(?:per\s*lit\w*)?\s*(?:increase|hike|raise|surge)',
+                clean, _re.IGNORECASE
+            )
+            if change_match:
+                result["petrol_change_rs"] = float(change_match.group(1))
+
+    except Exception:
+        pass
+
+    # Strategy 2 (FALLBACK): Parse from news cache headlines
+    if result["petrol_price_rs"] is None:
+        news_dir = Path(__file__).resolve().parent.parent / "data" / "news_cache"
+        fuel_headlines = []
+        if news_dir.exists():
+            for f in news_dir.glob("*.json"):
+                try:
+                    data = json.load(open(f, "r"))
+                    articles = []
+                    if isinstance(data, list):
+                        articles = data
+                    elif isinstance(data, dict):
+                        for v in data.values():
+                            if isinstance(v, list):
+                                articles.extend(v)
+                    for item in articles:
+                        title = str(item.get("title", "") if isinstance(item, dict) else item).lower()
+                        if any(k in title for k in ["petrol", "diesel", "hsd", "fuel price"]):
+                            if any(k in title for k in ["hike", "hiked", "increase", "cut", "reduce", "rs"]):
+                                fuel_headlines.append(title)
+                except Exception:
+                    continue
+
+        for headline in fuel_headlines:
+            petrol_match = _re.search(r'petrol.*?(?:by\s+)?rs\.?\s*(\d+(?:\.\d+)?)', headline)
+            diesel_match = _re.search(r'(?:diesel|hsd).*?(?:by\s+)?rs\.?\s*(\d+(?:\.\d+)?)', headline)
+
+            if petrol_match:
+                val = float(petrol_match.group(1))
+                if val > 50:
+                    if result["petrol_price_rs"] is None or val > result["petrol_price_rs"]:
+                        result["petrol_price_rs"] = val
+                else:
+                    if result["petrol_change_rs"] is None or val > abs(result["petrol_change_rs"] or 0):
+                        is_hike = any(k in headline for k in ["hike", "hiked", "increase", "up"])
+                        result["petrol_change_rs"] = val if is_hike else -val
+
+            if diesel_match:
+                val = float(diesel_match.group(1))
+                if val > 50:
+                    if result["diesel_price_rs"] is None or val > result["diesel_price_rs"]:
+                        result["diesel_price_rs"] = val
+                else:
+                    if result["diesel_change_rs"] is None or val > abs(result["diesel_change_rs"] or 0):
+                        is_hike = any(k in headline for k in ["hike", "hiked", "increase", "up"])
+                        result["diesel_change_rs"] = val if is_hike else -val
+
+        if result["petrol_price_rs"] is not None:
+            result["source"] = "news_cache"
+
+    # Compute changes from previous cached price if we don't have the change amount
+    if result["petrol_price_rs"] and not result["petrol_change_rs"]:
+        try:
+            prev_cache = json.load(open(PK_FUEL_CACHE, "r")) if PK_FUEL_CACHE.exists() else {}
+            prev_price = prev_cache.get("petrol_price_rs")
+            if prev_price and prev_price != result["petrol_price_rs"]:
+                result["petrol_change_rs"] = round(result["petrol_price_rs"] - prev_price, 2)
+                result["petrol_prev_rs"] = prev_price
+        except Exception:
+            pass
+
+    # Compute change percentages if we have both current and change
+    if result["petrol_price_rs"] and result["petrol_change_rs"]:
+        prev = result["petrol_price_rs"] - result["petrol_change_rs"]
+        if prev > 0:
+            result["petrol_prev_rs"] = result.get("petrol_prev_rs") or round(prev, 2)
+            result["petrol_change_pct"] = round(result["petrol_change_rs"] / prev * 100, 1)
+
+    if result["diesel_price_rs"] and result["diesel_change_rs"]:
+        prev = result["diesel_price_rs"] - result["diesel_change_rs"]
+        if prev > 0:
+            result["diesel_prev_rs"] = result.get("diesel_prev_rs") or round(prev, 2)
+            result["diesel_change_pct"] = round(result["diesel_change_rs"] / prev * 100, 1)
+
+    result["available"] = result["petrol_price_rs"] is not None or result["petrol_change_rs"] is not None
+    if result["source"] is None:
+        result["source"] = "news_cache" if result["available"] else "unavailable"
+
+    # Cache the result
+    try:
+        PK_FUEL_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        json.dump(result, open(PK_FUEL_CACHE, "w"), indent=2)
+    except Exception:
+        pass
+
+    if result["available"]:
+        print(f"✅ Pakistan fuel prices: Petrol Rs{result['petrol_price_rs'] or '?'}/L, change Rs{result['petrol_change_rs'] or '?'}")
+    else:
+        print("⚠️ Pakistan fuel prices unavailable")
+
+    return result
 
 
 # ============================================================================

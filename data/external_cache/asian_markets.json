@@ -1,22 +1,22 @@
 {
   "nikkei": {
-    "current": 53372.53,
-    "prev_close": 55239.4,
-    "change_pct": -3.38,
-    "open_gap_pct": -1.72,
-    "status": "closed"
+    "current": 53739.68,
+    "prev_close": 51063.72,
+    "change_pct": 5.24,
+    "open_gap_pct": 1.75,
+    "status": "open"
   },
   "kospi": {
-    "current": 5781.2,
-    "prev_close": 5763.22,
-    "change_pct": 0.31,
-    "open_gap_pct": 0.87,
-    "status": "closed"
+    "current": 5478.7,
+    "prev_close": 5052.46,
+    "change_pct": 8.44,
+    "open_gap_pct": 5.49,
+    "status": "open"
   },
-  "asian_risk_off_signal": 0.5,
-  "crash_warning": true,
-  "crash_severity": "moderate",
-  "warning_message": "Nikkei dropped 3.4%. Regional sell-off risk for PSX.",
-  "checked_at": "2026-03-21T02:53:42.071484",
-  "asian_avg_return": -1.53
+  "asian_risk_off_signal": 0.0,
+  "crash_warning": false,
+  "crash_severity": "none",
+  "warning_message": "",
+  "checked_at": "2026-04-01T13:43:56.935212",
+  "asian_avg_return": 6.84
 }

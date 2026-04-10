@@ -144,13 +144,12 @@ class ResearchBackedEnsemble:
         self.scaler = StandardScaler()
         self.is_fitted = False
         
-        # Research-backed model weights
-        # SVM and MLP dominate based on PSX literature
+        # Default weights (updated automatically after validation in fit())
         self.weights = {
-            'svm': 0.35,      # Highest weight - 85% on PSX
-            'mlp': 0.35,      # Highest weight - 85% on PSX
-            'gb': 0.15,       # Keep for feature importance
-            'ridge': 0.15     # Linear baseline
+            'svm': 0.22,
+            'mlp': 0.20,
+            'gb': 0.26,
+            'ridge': 0.32
         }
         
         self._init_models()
@@ -241,6 +240,13 @@ class ResearchBackedEnsemble:
             if verbose:
                 print(f"    {name}: {avg_scores[name]:.2%}")
         
+        # Update weights proportional to validation accuracy
+        total_acc = sum(avg_scores.values())
+        if total_acc > 0:
+            self.weights = {name: score / total_acc for name, score in avg_scores.items()}
+            if verbose:
+                print(f"\n⚖️ Updated weights: {', '.join(f'{n}: {w:.2f}' for n, w in self.weights.items())}")
+
         # Train final models on all data (scaler fitted on full training set)
         if verbose:
             print("\n🔧 Training final models...")

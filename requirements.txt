@@ -11,7 +11,10 @@ python-dotenv>=1.0.0
 # HTTP client
 httpx>=0.26.0
 
-# Groq for sentiment analysis (runs on Vercel, not in E2B)
+# Anthropic for sentiment analysis (primary, runs on Vercel, not in E2B)
+anthropic>=0.39.0
+
+# Groq for sentiment analysis (fallback, runs on Vercel, not in E2B)
 groq>=0.4.0
 
 # JSON handling

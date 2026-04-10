@@ -1,0 +1,214 @@
+========================================================================================================================
+PSX PREDICTION MODEL — FULL ACCURACY REPORT
+Total Evaluated Predictions: 99 | Symbols: 17 | Period: 2026-01-26 to 2026-03-31
+========================================================================================================================
+
+SECTION 1: EVERY PREDICTION WITH ACTUAL VALUES
+------------------------------------------------------------------------------------------------------------------------
+  #       Date   Symbol Horizon  Variant  CurPrice  PredPrice  ActPrice   Pred%    Act%    Err%  PredDir   ActDir  Green   OK
+------------------------------------------------------------------------------------------------------------------------
+  1 2026-02-01     BWHL      7d baseline    212.56     212.53    226.50   -0.01   +6.56   -6.17  BEARISH  BULLISH      🟢    ✗
+  2 2026-03-06   CNERGY      7d baseline      6.98       6.49      6.97   -7.02   -0.14   -6.89  BEARISH  BEARISH      🔴    ✓
+  3 2026-02-01     CSAP      7d baseline    135.13     139.72    125.76   +3.40   -6.93  +11.10  BULLISH  BEARISH      🔴    ✗
+  4 2026-02-01     DFML      7d baseline     23.94      25.01     23.78   +4.47   -0.67   +5.17  BULLISH  BEARISH      🔴    ✗
+  5 2026-02-13     DFML      7d baseline     24.29      26.40     20.02   +8.69  -17.58  +31.87  BULLISH  BEARISH      🔴    ✗
+  6 2026-03-02     FABL      7d baseline     91.64      89.35     75.94   -2.50  -17.13  +17.66  BEARISH  BEARISH      🔴    ✓
+  7 2026-03-02     FABL      7d baseline     91.64      89.35     75.94   -2.50  -17.13  +17.66  BEARISH  BEARISH      🔴    ✓
+  8 2026-03-02     FABL      7d baseline     91.64      89.35     75.94   -2.50  -17.13  +17.66  BEARISH  BEARISH      🔴    ✓
+  9 2026-03-02     GCIL      7d baseline     28.30      24.69     26.23  -12.76   -7.31   -5.87  BEARISH  BEARISH      🔴    ✓
+ 10 2026-03-02     GCIL      7d baseline     28.30      24.69     26.23  -12.76   -7.31   -5.87  BEARISH  BEARISH      🔴    ✓
+ 11 2026-01-26     JVDC      7d baseline    150.70     148.74    156.61   -1.30   +3.92   -5.03  NEUTRAL  BULLISH      🟢    ✓
+ 12 2026-03-06     KOHC      7d baseline     83.71      87.29     79.52   +4.28   -5.01   +9.77  NEUTRAL  BEARISH      🔴    ✓
+ 13 2026-03-06     KOHC      7d baseline     83.71      87.31     79.52   +4.30   -5.01   +9.80  NEUTRAL  BEARISH      🔴    ✓
+ 14 2026-02-01   KSE100      7d baseline 184174.49  184114.60 182340.38   -0.03   -1.00   +0.97  BEARISH  BEARISH      🔴    ✓
+ 15 2026-02-01   KSE100      7d baseline 184174.49  187854.61 182340.38   +2.00   -1.00   +3.02  BULLISH  BEARISH      🔴    ✗
+ 16 2026-03-02   KSE100      7d baseline 168062.17  163007.77 146480.15   -3.01  -12.84  +11.28  BEARISH  BEARISH      🔴    ✓
+ 17 2026-03-02   KSE100      7d baseline 168062.17  163003.66 146480.15   -3.01  -12.84  +11.28  BULLISH  BEARISH      🔴    ✗
+ 18 2026-03-02   KSE100      7d baseline 168062.17  163003.66 146480.15   -3.01  -12.84  +11.28  BULLISH  BEARISH      🔴    ✗
+ 19 2026-03-02   KSE100      7d baseline 151973.00  160192.32 146480.15   +5.41   -3.61   +9.36  BULLISH  BEARISH      🔴    ✗
+ 20 2026-03-02   KSE100      7d baseline 151973.00  160192.32 146480.15   +5.41   -3.61   +9.36  BULLISH  BEARISH      🔴    ✗
+ 21 2026-03-03   KSE100      7d baseline 157132.10  157291.99 156177.12   +0.10   -0.61   +0.71  BULLISH  BEARISH      🔴    ✗
+ 22 2026-03-06   KSE100      7d baseline 161210.68  161937.51 153866.17   +0.45   -4.56   +5.25  BULLISH  BEARISH      🔴    ✗
+ 23 2026-03-09   KSE100      7d baseline 157496.10  153472.62 149178.66   -2.55   -5.28   +2.88  BULLISH  BEARISH      🔴    ✗
+ 24 2026-03-12   KSE100      7d baseline 155858.48  147476.01 154292.26   -5.38   -1.00   -4.42  BULLISH  BEARISH      🔴    ✗
+ 25 2026-03-13   KSE100      1d baseline 153866.17  153594.63 149178.66   -0.18   -3.05   +2.96  BULLISH  BEARISH      🔴    ✗
+ 26 2026-03-13   KSE100      7d baseline 153866.17  152031.99 152740.38   -1.19   -0.73   -0.46  BULLISH  BEARISH      🔴    ✗
+ 27 2026-03-13   KSE100      1d      geo 153866.17  149905.80 149178.66   -2.57   -3.05   +0.49  BULLISH  BEARISH      🔴    ✗
+ 28 2026-03-13   KSE100      7d      geo 153866.17  150016.31 152740.38   -2.50   -0.73   -1.78  BULLISH  BEARISH      🔴    ✗
+ 29 2026-03-24   KSE100      1d baseline 153866.17  153591.19 152740.38   -0.18   -0.73   +0.56  BULLISH  BEARISH      🔴    ✗
+ 30 2026-03-24   KSE100      1d      geo 153866.17  148983.45 152740.38   -3.17   -0.73   -2.46  BULLISH  BEARISH      🔴    ✗
+ 31 2026-03-31   KSE100      1d baseline 146842.97  149210.22 146842.97   +1.61   +0.00   +1.61  BULLISH  NEUTRAL      ⚪    ✗
+ 32 2026-03-31   KSE100      1d      geo 146842.97  144772.40 146842.97   -1.41   +0.00   -1.41  BULLISH  NEUTRAL      ⚪    ✗
+ 33 2026-02-02     MARI      7d baseline    714.01     677.52    692.08   -5.11   -3.07   -2.10  BEARISH  BEARISH      🔴    ✓
+ 34 2026-02-01     OGDC      7d baseline    323.93     324.74    310.07   +0.25   -4.28   +4.73  BULLISH  BEARISH      🔴    ✗
+ 35 2026-03-04     OGDC      7d baseline    263.56     276.43    283.27   +4.88   +7.48   -2.41  BULLISH  BULLISH      🟢    ✓
+ 36 2026-03-06     OGDC      7d baseline    285.28     290.25    273.09   +1.74   -4.27   +6.28  BEARISH  BEARISH      🔴    ✓
+ 37 2026-03-06     OGDC      7d baseline    275.79     280.94    273.09   +1.87   -0.98   +2.87  BEARISH  BEARISH      🔴    ✓
+ 38 2026-03-06     OGDC      7d baseline    275.79     283.62    273.09   +2.84   -0.98   +3.86  BEARISH  BEARISH      🔴    ✓
+ 39 2026-03-09     OGDC      7d baseline    275.79     280.94    261.86   +1.87   -5.05   +7.29  BEARISH  BEARISH      🔴    ✓
+ 40 2026-03-09     OGDC      7d baseline    275.79     278.32    261.86   +0.92   -5.05   +6.29  BEARISH  BEARISH      🔴    ✓
+ 41 2026-03-09     OGDC      7d baseline    275.79     277.81    261.86   +0.73   -5.05   +6.09  BEARISH  BEARISH      🔴    ✓
+ 42 2026-03-09     OGDC      7d baseline    275.79     283.60    261.86   +2.83   -5.05   +8.30  BEARISH  BEARISH      🔴    ✓
+ 43 2026-03-09     OGDC      7d baseline    275.79     291.68    261.86   +5.76   -5.05  +11.39  BEARISH  BEARISH      🔴    ✓
+ 44 2026-03-09     OGDC      7d baseline    275.79     291.70    261.86   +5.77   -5.05  +11.40  BEARISH  BEARISH      🔴    ✓
+ 45 2026-03-10     OGDC      7d baseline    272.48     290.16    262.64   +6.49   -3.61  +10.48  BEARISH  BEARISH      🔴    ✓
+ 46 2026-03-14     OGDC      1d baseline    273.09     274.33    261.86   +0.45   -4.11   +4.76  BULLISH  BEARISH      🔴    ✗
+ 47 2026-03-14     OGDC      7d baseline    273.09     267.54    276.61   -2.03   +1.29   -3.28  BULLISH  BULLISH      🟢    ✓
+ 48 2026-03-14     OGDC      1d      geo    273.09     270.14    261.86   -1.08   -4.11   +3.16  BULLISH  BEARISH      🔴    ✗
+ 49 2026-03-14     OGDC      7d      geo    273.09     265.28    276.61   -2.86   +1.29   -4.10  BULLISH  BULLISH      🟢    ✓
+ 50 2026-03-18     OGDC      1d baseline    279.75     283.01    279.75   +1.17   +0.00   +1.17  BEARISH  NEUTRAL      ⚪    ✗
+ 51 2026-03-18     OGDC      7d baseline    279.75     289.41    265.62   +3.45   -5.05   +8.96  BEARISH  BEARISH      🔴    ✓
+ 52 2026-03-18     OGDC      1d      geo    279.75     280.35    279.75   +0.21   +0.00   +0.21  BEARISH  NEUTRAL      ⚪    ✗
+ 53 2026-03-18     OGDC      7d      geo    279.75     287.39    265.62   +2.73   -5.05   +8.20  BEARISH  BEARISH      🔴    ✓
+ 54 2026-03-19     OGDC      1d baseline    279.75     283.01    279.75   +1.17   +0.00   +1.17  BEARISH  NEUTRAL      ⚪    ✗
+ 55 2026-03-19     OGDC      7d baseline    279.75     289.40    265.62   +3.45   -5.05   +8.95  BEARISH  BEARISH      🔴    ✓
+ 56 2026-03-19     OGDC      1d      geo    279.75     279.45    279.75   -0.11   +0.00   -0.11  BEARISH  NEUTRAL      ⚪    ✗
+ 57 2026-03-19     OGDC      7d      geo    279.75     286.69    265.62   +2.48   -5.05   +7.93  BEARISH  BEARISH      🔴    ✓
+ 58 2026-03-21     OGDC      1d baseline    276.61     285.31    276.61   +3.15   +0.00   +3.15  BEARISH  NEUTRAL      ⚪    ✗
+ 59 2026-03-21     OGDC      7d baseline    276.61     280.60    263.50   +1.44   -4.74   +6.49  BEARISH  BEARISH      🔴    ✓
+ 60 2026-03-21     OGDC      1d      geo    276.61     278.72    276.61   +0.76   +0.00   +0.76  BEARISH  NEUTRAL      ⚪    ✗
+ 61 2026-03-21     OGDC      7d      geo    276.61     277.02    263.50   +0.15   -4.74   +5.13  BEARISH  BEARISH      🔴    ✓
+ 62 2026-03-23     OGDC      1d baseline    276.61     283.57    276.61   +2.52   +0.00   +2.52  BEARISH  NEUTRAL      ⚪    ✗
+ 63 2026-03-23     OGDC      7d baseline    276.61     278.33    263.50   +0.62   -4.74   +5.63  BEARISH  BEARISH      🔴    ✓
+ 64 2026-03-23     OGDC      1d      geo    276.61     276.48    276.61   -0.05   +0.00   -0.05  BEARISH  NEUTRAL      ⚪    ✗
+ 65 2026-03-23     OGDC      7d      geo    276.61     274.26    263.50   -0.85   -4.74   +4.08  BEARISH  BEARISH      🔴    ✓
+ 66 2026-03-31     OGDC      1d baseline    263.50     256.28    263.50   -2.74   +0.00   -2.74  BEARISH  NEUTRAL      ⚪    ✗
+ 67 2026-03-31     OGDC      1d      geo    263.50     262.69    263.50   -0.31   +0.00   -0.31  BEARISH  NEUTRAL      ⚪    ✗
+ 68 2026-03-06     PIOC      7d baseline    240.08     229.52    225.78   -4.40   -5.96   +1.66  NEUTRAL  BEARISH      🔴    ✓
+ 69 2026-03-06     PIOC      7d baseline    240.08     229.52    225.78   -4.40   -5.96   +1.66  NEUTRAL  BEARISH      🔴    ✓
+ 70 2026-01-26      PPL      7d baseline    269.85     269.68    279.32   -0.06   +3.51   -3.45  BULLISH  BULLISH      🟢    ✓
+ 71 2026-02-01      PPL      7d baseline    277.34     290.95    253.84   +4.91   -8.47  +14.62  BULLISH  BEARISH      🔴    ✗
+ 72 2026-02-13      PPL      7d baseline    236.27     232.45    229.02   -1.62   -3.07   +1.50  BEARISH  BEARISH      🔴    ✓
+ 73 2026-02-13      PPL      7d baseline    236.27     231.47    229.02   -2.03   -3.07   +1.07  BEARISH  BEARISH      🔴    ✓
+ 74 2026-02-13      PPL      7d baseline    236.27     235.01    229.02   -0.53   -3.07   +2.62  NEUTRAL  BEARISH      🔴    ✓
+ 75 2026-01-27    SAZEW      7d baseline   2107.08    1972.00   2302.05   -6.41   +9.25  -14.34  BULLISH  BULLISH      🟢    ✓
+ 76 2026-01-27    SAZEW      7d baseline   2107.08    1956.70   2302.05   -7.14   +9.25  -15.00  BULLISH  BULLISH      🟢    ✓
+ 77 2026-03-03    SAZEW      7d baseline   1972.86    2055.00   1961.89   +4.16   -0.56   +4.75  BULLISH  BEARISH      🔴    ✗
+ 78 2026-03-03    SAZEW      7d baseline   2049.79    2110.33   1961.89   +2.95   -4.29   +7.57  BULLISH  BEARISH      🔴    ✗
+ 79 2026-03-06    SAZEW      7d baseline   2132.19    2084.78   1842.55   -2.22  -13.58  +13.15  BULLISH  BEARISH      🔴    ✗
+ 80 2026-03-06    SAZEW      7d baseline   2132.19    2084.78   1842.55   -2.22  -13.58  +13.15  BULLISH  BEARISH      🔴    ✗
+ 81 2026-03-10    SAZEW      7d baseline   1961.89    2043.20   1792.45   +4.14   -8.64  +13.99  BULLISH  BEARISH      🔴    ✗
+ 82 2026-03-18    SAZEW      1d baseline   1856.41    1892.41   1856.41   +1.94   +0.00   +1.94  BULLISH  NEUTRAL      ⚪    ✗
+ 83 2026-03-18    SAZEW      7d baseline   1856.41    1991.05   1651.59   +7.25  -11.03  +20.55  BULLISH  BEARISH      🔴    ✗
+ 84 2026-03-18    SAZEW      1d      geo   1856.41    1882.85   1856.41   +1.42   +0.00   +1.42  BULLISH  NEUTRAL      ⚪    ✗
+ 85 2026-03-18    SAZEW      7d      geo   1856.41    1983.57   1651.59   +6.85  -11.03  +20.10  BULLISH  BEARISH      🔴    ✗
+ 86 2026-01-26    SEARL      7d baseline    123.66     121.02    120.57   -2.13   -2.50   +0.37  BEARISH  BEARISH      🔴    ✓
+ 87 2026-01-26    THCCL      7d baseline     68.51      70.50     67.02   +2.90   -2.17   +5.19  BEARISH  BEARISH      🔴    ✓
+ 88 2026-03-03      UBL      7d baseline    396.03     398.72    381.49   +0.68   -3.67   +4.52  BEARISH  BEARISH      🔴    ✓
+ 89 2026-03-06      UBL      7d baseline    401.49     425.85    371.37   +6.07   -7.50  +14.67  BULLISH  BEARISH      🔴    ✗
+ 90 2026-03-06      UBL      7d baseline    401.49     425.86    371.37   +6.07   -7.50  +14.67  BULLISH  BEARISH      🔴    ✗
+ 91 2026-03-10      UBL      7d baseline    381.49     394.34    364.83   +3.37   -4.37   +8.09  BULLISH  BEARISH      🔴    ✗
+ 92 2026-03-18      UBL      1d baseline    382.07     383.18    382.07   +0.29   +0.00   +0.29  BULLISH  NEUTRAL      ⚪    ✗
+ 93 2026-03-18      UBL      7d baseline    382.07     385.62    344.45   +0.93   -9.85  +11.95  BULLISH  BEARISH      🔴    ✗
+ 94 2026-03-18      UBL      1d      geo    382.07     382.40    382.07   +0.09   +0.00   +0.09  BULLISH  NEUTRAL      ⚪    ✗
+ 95 2026-03-18      UBL      7d      geo    382.07     385.04    344.45   +0.78   -9.85  +11.78  BULLISH  BEARISH      🔴    ✗
+ 96 2026-03-23      UBL      1d baseline    368.72     371.65    368.72   +0.79   +0.00   +0.79  BULLISH  NEUTRAL      ⚪    ✗
+ 97 2026-03-23      UBL      7d baseline    368.72     412.40    336.81  +11.85   -8.65  +22.44  BULLISH  BEARISH      🔴    ✗
+ 98 2026-03-23      UBL      1d      geo    368.72     362.27    368.72   -1.75   +0.00   -1.75  BULLISH  NEUTRAL      ⚪    ✗
+ 99 2026-03-23      UBL      7d      geo    368.72     407.87    336.81  +10.62   -8.65  +21.10  BULLISH  BEARISH      🔴    ✗
+
+========================================================================================================================
+SECTION 2: OVERALL SUMMARY
+========================================================================================================================
+
+  Total predictions evaluated:     99
+
+  --- Direction Accuracy (model's BULLISH/BEARISH label vs actual) ---
+  Correct:                         44/99 = 44.4%
+
+  --- Candle Prediction (did price prediction get green/red right?) ---
+  Correct:                         30/99 = 30.3%
+
+  --- Prediction Bias ---
+  Predicted GREEN (price up):      57/99 = 57.6%
+  Predicted RED (price down):       42/99 = 42.4%
+  Actually GREEN:                  8/99 = 8.1%
+  Actually RED:                     73/99 = 73.7%
+  Actually NEUTRAL (0%):           18/99 = 18.2%
+
+  --- Price Error ---
+  Mean signed error:               +4.94%  (too bullish)
+  Mean absolute error:             6.75%
+
+========================================================================================================================
+SECTION 3: PER-SYMBOL BREAKDOWN
+========================================================================================================================
+  Symbol    N   DirAcc  CandleAcc  PredGrn%  ActGrn%  ActRed%  ActNeut%   AvgErr   AbsErr         Bias
+------------------------------------------------------------------------------------------------------------------------
+    BWHL    1     0.0%       0.0%        0%     100%       0%        0%    -6.17     6.17      BEARISH
+  CNERGY    1   100.0%     100.0%        0%       0%     100%        0%    -6.89     6.89      BEARISH
+    CSAP    1     0.0%       0.0%      100%       0%     100%        0%   +11.10    11.10      BULLISH
+    DFML    2     0.0%       0.0%      100%       0%     100%        0%   +18.52    18.52      BULLISH
+    FABL    3   100.0%     100.0%        0%       0%     100%        0%   +17.66    17.66      BULLISH
+    GCIL    2   100.0%     100.0%        0%       0%     100%        0%    -5.87     5.87      BEARISH
+    JVDC    1   100.0%       0.0%        0%     100%       0%        0%    -5.03     5.03      BEARISH
+    KOHC    2   100.0%       0.0%      100%       0%     100%        0%    +9.78     9.78      BULLISH
+  KSE100   19    10.5%      63.2%       32%       0%      89%       11%    +3.18     4.29      BULLISH
+    MARI    1   100.0%     100.0%        0%       0%     100%        0%    -2.10     2.10      BEARISH
+    OGDC   34    61.8%       8.8%       76%       9%      62%       29%    +4.07     4.83      BULLISH
+    PIOC    2   100.0%     100.0%        0%       0%     100%        0%    +1.66     1.66      BULLISH
+     PPL    5    80.0%      60.0%       20%      20%      80%        0%    +3.27     4.65      BULLISH
+   SAZEW   11    18.2%      18.2%       64%      18%      64%       18%    +6.12    11.45      BULLISH
+   SEARL    1   100.0%     100.0%        0%       0%     100%        0%    +0.37     0.37           OK
+   THCCL    1   100.0%       0.0%      100%       0%     100%        0%    +5.19     5.19      BULLISH
+     UBL   12     8.3%       0.0%       92%       0%      67%       33%    +9.05     9.35      BULLISH
+
+========================================================================================================================
+SECTION 4: BY HORIZON
+========================================================================================================================
+  1-day predictions: 24 total | Direction: 0/24 = 0.0% | Candle: 5/24 = 20.8%
+  7-day predictions: 75 total | Direction: 44/75 = 58.7% | Candle: 25/75 = 33.3%
+
+========================================================================================================================
+SECTION 5: BY VARIANT (baseline vs geo-adjusted)
+========================================================================================================================
+  baseline: 78 preds | Direction: 39/78 = 50.0% | Candle: 25/78 = 32.1% | Avg error: +5.34%
+  geo: 21 preds | Direction: 5/21 = 23.8% | Candle: 5/21 = 23.8% | Avg error: +3.45%
+
+========================================================================================================================
+SECTION 6: TOP 10 WORST MISSES (by absolute error)
+========================================================================================================================
+  #       Date   Symbol   Pred%    Act%  AbsErr
+  1 2026-02-13     DFML   +8.69  -17.58   31.87
+  2 2026-03-23      UBL  +11.85   -8.65   22.44
+  3 2026-03-23      UBL  +10.62   -8.65   21.10
+  4 2026-03-18    SAZEW   +7.25  -11.03   20.55
+  5 2026-03-18    SAZEW   +6.85  -11.03   20.10
+  6 2026-03-02     FABL   -2.50  -17.13   17.66
+  7 2026-03-02     FABL   -2.50  -17.13   17.66
+  8 2026-03-02     FABL   -2.50  -17.13   17.66
+  9 2026-01-27    SAZEW   -7.14   +9.25   15.00
+ 10 2026-03-06      UBL   +6.07   -7.50   14.67
+
+========================================================================================================================
+SECTION 7: GREEN vs RED CANDLE PREDICTION ACCURACY
+========================================================================================================================
+  When model predicted GREEN (up):   57 times
+    Actually green:                  1/57 = 1.8%
+  When model predicted RED (down):    42 times
+    Actually red:                     29/42 = 69.0%
+
+  Per-symbol candle prediction rate:
+    Symbol  PredGreen   HitGreen  GreenAcc  PredRed   HitRed   RedAcc
+  -----------------------------------------------------------------
+      BWHL          0          0       N/A        1        0       0%
+    CNERGY          0          0       N/A        1        1     100%
+      CSAP          1          0        0%        0        0      N/A
+      DFML          2          0        0%        0        0      N/A
+      FABL          0          0       N/A        3        3     100%
+      GCIL          0          0       N/A        2        2     100%
+      JVDC          0          0       N/A        1        0       0%
+      KOHC          2          0        0%        0        0      N/A
+    KSE100          6          0        0%       13       12      92%
+      MARI          0          0       N/A        1        1     100%
+      OGDC         26          1        4%        8        2      25%
+      PIOC          0          0       N/A        2        2     100%
+       PPL          1          0        0%        4        3      75%
+     SAZEW          7          0        0%        4        2      50%
+     SEARL          0          0       N/A        1        1     100%
+     THCCL          1          0        0%        0        0      N/A
+       UBL         11          0        0%        1        0       0%
+
+========================================================================================================================
+END OF REPORT
+========================================================================================================================

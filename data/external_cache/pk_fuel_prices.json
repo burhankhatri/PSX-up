@@ -1,0 +1,14 @@
+{
+  "available": true,
+  "petrol_price_rs": 321.17,
+  "diesel_price_rs": 335.86,
+  "petrol_prev_rs": null,
+  "diesel_prev_rs": null,
+  "petrol_change_rs": null,
+  "diesel_change_rs": null,
+  "petrol_change_pct": null,
+  "diesel_change_pct": null,
+  "effective_date": null,
+  "source": "live_web",
+  "fetched_at": "2026-04-03T00:10:25.102334"
+}
