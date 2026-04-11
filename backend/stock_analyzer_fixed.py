@@ -447,60 +447,7 @@ def build_forecast_postmortem(
     return payload
 
 
-def _log_prediction_variants(
-    logger,
-    *,
-    symbol: str,
-    current_price: float,
-    baseline_predictions: List[Dict],
-    geo_predictions: Optional[List[Dict]],
-    analysis_id: str,
-    prediction_generated_at: datetime,
-    neutral_band_pct: float = 0.0,
-    include_geo_variant: bool = True,
-) -> List[Dict]:
-    logged_entries: List[Dict] = []
-    geo_predictions = geo_predictions or []
-    horizons = (
-        ('day_1', 0, 1),
-        ('day_7', 6, 7),
-    )
-
-    variant_series: List[tuple[str, List[Dict]]] = [('baseline', baseline_predictions)]
-    if include_geo_variant:
-        variant_series.append(('geo', geo_predictions or baseline_predictions))
-
-    for variant, predictions in variant_series:
-        for target_horizon, idx, horizon_days in horizons:
-            if idx >= len(predictions):
-                continue
-            pred = predictions[idx]
-            baseline_pred = baseline_predictions[idx] if idx < len(baseline_predictions) else None
-            baseline_price = _safe_float((baseline_pred or {}).get('predicted_price'), 0.0)
-            predicted_price = _safe_float(pred.get('predicted_price'), 0.0)
-            geo_adjustment_pct = 0.0
-            if variant == 'geo' and baseline_price > 0:
-                geo_adjustment_pct = round(((predicted_price - baseline_price) / baseline_price) * 100.0, 4)
-
-            entry = logger.log_prediction(
-                symbol=symbol,
-                current_price=current_price,
-                predicted_price=predicted_price,
-                predicted_direction=_prediction_direction(pred, neutral_band_pct=neutral_band_pct),
-                confidence=_safe_float(pred.get('confidence'), 0.5),
-                horizon_days=horizon_days,
-                williams_signal=pred.get('williams_signal'),
-                sector=pred.get('sector'),
-                evaluation_date=_resolve_prediction_target_date(pred, prediction_generated_at, horizon_days),
-                prediction_date=prediction_generated_at,
-                analysis_id=analysis_id,
-                variant=variant,
-                target_horizon=target_horizon,
-                geo_adjustment_pct=geo_adjustment_pct,
-            )
-            logged_entries.append(entry)
-
-    return logged_entries
+from backend.post_process._logging import log_prediction_variants as _log_prediction_variants  # noqa: E402
 
 
 def fetch_month_data(symbol: str, month: int, year: int):
