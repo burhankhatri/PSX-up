@@ -526,7 +526,7 @@ class CommodityPredictor:
         
         # Drop NaN
         df_clean = df.dropna(subset=['Target'] + feature_cols)
-        df_clean[feature_cols] = df_clean[feature_cols].fillna(method='ffill').fillna(0)
+        df_clean[feature_cols] = df_clean[feature_cols].ffill().fillna(0)
         
         X = df_clean[feature_cols].values
         y = df_clean['Target'].values

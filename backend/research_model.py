@@ -1127,7 +1127,7 @@ class PSXResearchModel:
             y = df_clean['Target'].values
         
         # Clean NaN
-        df_clean[feature_cols] = df_clean[feature_cols].fillna(method='ffill').fillna(0)
+        df_clean[feature_cols] = df_clean[feature_cols].ffill().fillna(0)
         X = df_clean[feature_cols].values
         
         # Remove NaN/inf from returns
