@@ -24,6 +24,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from backend.llm_helpers import (
+    WEB_SEARCH_TOOL_GEO,
+    parse_claude_json_response,
+)
+
 try:
     from backend.energy_shock_features import (
         ENERGY_SHOCK_SYMBOLS,
@@ -766,7 +771,19 @@ affecting this ticker on the Pakistan Stock Exchange.
 NEWS HEADLINES:
 {news_block}
 
-{commodity_block}TASK: Produce a JSON assessment with these fields:
+{commodity_block}WEB SEARCH TOOL AVAILABLE:
+You have a `web_search` tool — USE IT with targeted queries to verify or extend the headlines.
+The scraped headlines may be 6-12 hours stale. Use up to 3 searches to check CURRENT trajectory
+of any conflict or crisis the headlines mention. Priority queries (with today's date where useful):
+- "<conflict or crisis name> ceasefire latest {current_date}"
+- "<country A> <country B> tensions today"
+- "Pakistan <relevant event> PSX impact"
+- "Strait of Hormuz / oil supply / OPEC" — if energy-shock related
+- "<ticker or sector> latest news" — for ticker-specific recent moves
+Prefer reputable sources (Reuters, AP, BBC, Al Jazeera, Bloomberg, Dawn, Business Recorder).
+Cite the URLs you actually retrieve in your reasoning.
+
+TASK: Produce a JSON assessment with these fields:
 
 1. "trajectory" (string): One of:
    - "ceasefire" — a ceasefire, peace deal, or definitive de-escalation has been announced/confirmed
@@ -798,6 +815,17 @@ NEWS HEADLINES:
    - "Strait of Hormuz 95% blocked threatens Pakistan oil imports — BEARISH for auto sector margins"
    - "Ceasefire talks progressing — PSX recovery likely after 11,000-point crash"
 
+8. "x_factor" (float from -1.0 to +1.0): The single adjustment signal to apply to our prediction graph
+   for THIS ticker. Negative = bearish pressure that should pull the forecast DOWN, positive = bullish
+   pressure that should pull it UP. 0 = neutral. Magnitude reflects real conviction, not padding.
+   This number is fed directly into the prediction chart — be calibrated, not dramatic.
+
+9. "x_factor_reasoning" (string): 1 sentence explaining why you chose that x_factor — the single most
+   important signal (from headlines, commodity data, OR web_search results) driving it.
+
+10. "web_search_citations" (array of strings): List of URLs you actually retrieved via web_search
+    during this analysis. Empty array if you did not search. Used for audit.
+
 IMPORTANT:
 - Focus on events DIRECTLY affecting Pakistan: wars involving Pakistan, India-Pakistan tensions,
   regional conflicts (Afghanistan, Iran, Middle East), sanctions, IMF/economic crises.
@@ -818,21 +846,32 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
     raw = None
     llm_source = None
 
-    # Try Anthropic first (primary)
+    # Try Anthropic first (primary) — with web_search enabled for fresh trajectory.
     if _ANTHROPIC_AVAILABLE:
         try:
             client = _get_anthropic_client()
             if client:
-                logger.info("Using Anthropic Claude for trajectory assessment (primary)")
+                logger.info("Using Anthropic Claude + web_search for trajectory assessment (primary)")
                 message = client.messages.create(
                     model="claude-opus-4-6",
-                    max_tokens=1024,
+                    max_tokens=4096,  # larger budget: tool loop + final JSON
                     temperature=0.3,
                     system=system_prompt,
                     messages=[{"role": "user", "content": prompt}],
+                    tools=[WEB_SEARCH_TOOL_GEO],
                 )
-                raw = message.content[0].text.strip()
-                llm_source = "anthropic/claude-opus-4-6"
+                raw = parse_claude_json_response(message)
+                llm_source = "anthropic/claude-opus-4-6+web_search"
+                try:
+                    usage = getattr(message, "usage", None)
+                    if usage is not None:
+                        server_tool_use = getattr(usage, "server_tool_use", None)
+                        if server_tool_use is not None:
+                            n = getattr(server_tool_use, "web_search_requests", 0)
+                            if n:
+                                logger.info(f"web_search used {n}x for geopolitical trajectory")
+                except Exception:
+                    pass
         except Exception as e:
             logger.warning(f"Anthropic trajectory assessment failed (falling back to Groq): {e}")
             raw = None

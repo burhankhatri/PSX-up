@@ -19,6 +19,11 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 from dotenv import load_dotenv
 
+from backend.llm_helpers import (
+    WEB_SEARCH_TOOL_SENTIMENT,
+    parse_claude_json_response,
+)
+
 # Import premium news fetcher
 try:
     from backend.premium_news_fetcher import fetch_premium_news, get_news_for_sentiment_analysis
@@ -684,9 +689,19 @@ CRITICAL RULES:
 1. WEIGH FUNDAMENTALS HEAVILY - P/E ratios, dividend yields, and growth metrics are key indicators
 2. If fundamentals are STRONG (low P/E, good dividend, revenue/profit growth), DO NOT be overly bearish
 3. Short-term price dips in quality stocks often present buying opportunities
-4. Only cite facts from the provided news AND article content
+4. Cite facts from (a) the provided news/article content, OR (b) results you personally
+   retrieve via the web_search tool in this conversation. Never invent facts from memory.
 5. When fundamentals conflict with short-term price trend, FAVOR FUNDAMENTALS
 6. A stock with P/E < 12 and dividend yield > 4% is typically undervalued
+
+WEB SEARCH TOOL AVAILABLE:
+You have a `web_search` tool. USE IT with targeted queries to verify or extend the
+provided headlines before scoring. Prioritize queries like:
+- "{symbol} PSX latest news"
+- "{symbol} {company_name} earnings"
+- "{symbol} Pakistan Stock Exchange today"
+- Any specific event or claim from the headlines you want to verify
+Keep searches tight and cite the URLs you actually use in `verified_events`.
 {quality_guidance}
 
 {fundamental_summary}
@@ -704,43 +719,58 @@ RESPOND IN JSON FORMAT ONLY:
     "sentiment_score": <float from -1.0 to +1.0, use 0 if unclear>,
     "signal": "<BUY|HOLD|SELL>",
     "confidence": <float 0.0-1.0, lower if news is sparse or old>,
-    "verified_events": ["ONLY list events that appear verbatim in headlines above"],
+    "verified_events": ["events from provided headlines OR web_search results — include source URL in parentheses when from web_search"],
     "price_impact": {{
         "estimate": "<use 'unclear' unless there is very specific financial data>",
         "timeframe": "<unclear if not specified in news>",
-        "reasoning": "<brief reasoning based ONLY on provided headlines>"
+        "reasoning": "<brief reasoning citing only provided headlines or web_search results>"
     }},
-    "risks": ["only risks mentioned or implied in the headlines"],
-    "catalysts": ["ONLY catalysts explicitly mentioned in headlines - do NOT invent any"],
+    "risks": ["risks mentioned or implied in the headlines or web_search results"],
+    "catalysts": ["catalysts from headlines or web_search results — never invent"],
     "data_quality": "<good|limited|poor> - based on how much actionable news we have",
-    "summary": "<2-3 factual sentences ONLY referencing the actual headlines, acknowledge uncertainty>"
+    "summary": "<2-3 factual sentences referencing actual headlines or web_search findings, acknowledge uncertainty>",
+    "x_factor": <float from -1.0 to +1.0 — the single adjustment signal to apply to our prediction graph. Negative = bearish pressure that should pull the forecast DOWN, positive = bullish pressure that should pull it UP. 0 = neutral. Magnitude reflects your conviction. This number is fed directly into the chart.>,
+    "x_factor_reasoning": "<1 sentence explaining why you chose that x_factor — the single most important signal driving it>"
 }}
 
 ANTI-HALLUCINATION CHECKLIST before responding:
-- Did I only cite facts from the headlines above? 
-- Did I avoid making up specific % predictions?
-- Did I avoid inventing acquisitions/deals not in the headlines?
+- Did I only cite facts from the headlines above OR web_search results I actually retrieved?
+- Did I avoid making up specific % predictions not grounded in data?
+- Did I avoid inventing acquisitions/deals not in the headlines or search results?
 - Am I being appropriately uncertain given sparse data?
+- Is my x_factor magnitude honest — am I expressing real conviction, or padding to look decisive?
 
-Return ONLY valid JSON."""
+Return ONLY valid JSON. No prose before or after the JSON object."""
 
     response_text = None
     model_used = None
 
-    # Try Anthropic first (primary)
+    # Try Anthropic first (primary) — with web_search enabled for freshness.
     if ANTHROPIC_AVAILABLE:
         try:
             client = get_anthropic_client()
             if client:
-                print("   🔹 Using Anthropic Claude (primary)...")
+                print("   🔹 Using Anthropic Claude + web_search (primary)...")
                 message = client.messages.create(
                     model="claude-opus-4-6",
-                    max_tokens=1024,
+                    max_tokens=4096,  # larger budget: tools + final answer
                     temperature=0.05,
                     messages=[{"role": "user", "content": prompt}],
+                    tools=[WEB_SEARCH_TOOL_SENTIMENT],
                 )
-                response_text = message.content[0].text.strip()
-                model_used = "claude-opus-4-6"
+                response_text = parse_claude_json_response(message)
+                model_used = "claude-opus-4-6+web_search"
+                # Log search usage for cost visibility
+                try:
+                    usage = getattr(message, "usage", None)
+                    if usage is not None:
+                        server_tool_use = getattr(usage, "server_tool_use", None)
+                        if server_tool_use is not None:
+                            n = getattr(server_tool_use, "web_search_requests", 0)
+                            if n:
+                                print(f"   🔎 web_search used {n}x for {symbol}")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"⚠️ Anthropic error (falling back to Groq): {e}")
             response_text = None
