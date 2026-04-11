@@ -38,6 +38,10 @@ class PredictionRequest:
     generated_at: datetime
     horizon_label: str = "Day 7"
     overrides: Optional[RunOverrides] = None
+    # Observability-only LLM signals. In [-1.0, +1.0] or None. Logged to
+    # prediction_log.json; not yet consumed by the adjustment pipeline.
+    sentiment_x_factor: Optional[float] = None
+    geo_x_factor: Optional[float] = None
 
 
 @dataclass(frozen=True)

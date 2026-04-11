@@ -923,6 +923,21 @@ Respond with ONLY valid JSON, no markdown or explanation outside the JSON."""
     result["ticker_impact_summary"] = str(result.get("ticker_impact_summary", ""))[:300]
     result["llm_source"] = llm_source
 
+    # x_factor: [-1.0, +1.0] graph-adjustment signal from the LLM. Clamped
+    # and defaulted to 0.0 so downstream consumers can rely on it existing.
+    try:
+        x_raw = float(result.get("x_factor", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        x_raw = 0.0
+    result["x_factor"] = max(-1.0, min(1.0, x_raw))
+    result["x_factor_reasoning"] = str(result.get("x_factor_reasoning", ""))[:300]
+    # web_search citations: audit trail of URLs Claude actually retrieved
+    raw_citations = result.get("web_search_citations", []) or []
+    if isinstance(raw_citations, list):
+        result["web_search_citations"] = [str(u)[:500] for u in raw_citations[:10]]
+    else:
+        result["web_search_citations"] = []
+
     logger.info(f"LLM trajectory assessment: {result['trajectory']} (severity={result['severity']}, "
                  f"ceasefire_prob={result['ceasefire_probability']:.2f}, source={llm_source})")
     return result

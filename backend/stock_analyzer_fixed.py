@@ -2078,6 +2078,11 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                         "stock_health": _stock_health or {},
                         "geo_reasoning": geo_reasoning,
                         "geo_reasoning_parts": geo_reasoning_parts,
+                        # Top-level x_factor hoisted out of shock_data.trajectory.llm_assessment
+                        # for cheap observability. Not yet consumed by the adjustment pipeline.
+                        "llm_x_factor": _llm_data.get("x_factor") if _llm_data else None,
+                        "llm_x_factor_reasoning": _llm_data.get("x_factor_reasoning") if _llm_data else None,
+                        "llm_web_search_citations": _llm_data.get("web_search_citations") if _llm_data else None,
                     }
                 )
 
@@ -2317,6 +2322,25 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         try:
             from backend.prediction_logger import get_prediction_logger
             logger = get_prediction_logger()
+            # Extract LLM x_factor signals for observability-only logging.
+            # Downstream consumers may later use these to scale a new
+            # adjustment stage; today they flow straight into prediction_log.json
+            # so we can correlate them against realized next-day returns.
+            _sentiment_x = None
+            if isinstance(sentiment_result, dict):
+                _sx = sentiment_result.get('x_factor')
+                if _sx is not None:
+                    try:
+                        _sentiment_x = float(_sx)
+                    except (TypeError, ValueError):
+                        _sentiment_x = None
+            _geo_x = None
+            _gx = geo_comparison.get('llm_x_factor') if isinstance(geo_comparison, dict) else None
+            if _gx is not None:
+                try:
+                    _geo_x = float(_gx)
+                except (TypeError, ValueError):
+                    _geo_x = None
             _log_prediction_variants(
                 logger,
                 symbol=symbol,
@@ -2327,6 +2351,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 prediction_generated_at=analysis_generated_at,
                 neutral_band_pct=float(getattr(live_tweak_config, "neutral_band_pct", 0.0)),
                 include_geo_variant=bool(geo_comparison.get("enabled")),
+                sentiment_x_factor=_sentiment_x,
+                geo_x_factor=_geo_x,
             )
             logger.backfill_actuals(symbol=symbol, limit=32)
         except Exception as e:

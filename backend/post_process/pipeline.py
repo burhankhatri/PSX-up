@@ -119,6 +119,8 @@ class PredictionPipeline:
                     prediction_generated_at=req.generated_at,
                     neutral_band_pct=neutral_band,
                     include_geo_variant=geo is not None,
+                    sentiment_x_factor=req.sentiment_x_factor,
+                    geo_x_factor=req.geo_x_factor,
                 )
                 self._logger.backfill_actuals(symbol=req.symbol, limit=32)
             except Exception:

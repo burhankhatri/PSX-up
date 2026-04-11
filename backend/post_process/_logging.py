@@ -90,6 +90,8 @@ def log_prediction_variants(
     prediction_generated_at: datetime,
     neutral_band_pct: float = 0.0,
     include_geo_variant: bool = True,
+    sentiment_x_factor: Optional[float] = None,
+    geo_x_factor: Optional[float] = None,
 ) -> List[Dict]:
     """Fan out a prediction set into baseline and optional geo variant log entries."""
     logged_entries: List[Dict] = []
@@ -130,6 +132,8 @@ def log_prediction_variants(
                 variant=variant,
                 target_horizon=target_horizon,
                 geo_adjustment_pct=geo_adjustment_pct,
+                sentiment_x_factor=sentiment_x_factor,
+                geo_x_factor=geo_x_factor,
             )
             logged_entries.append(entry)
 
@@ -236,6 +240,21 @@ class PredictionLogger:
         normalized.setdefault('direction_correct', None)
         normalized.setdefault('actual_date_used', None)
         normalized.setdefault('evaluated_at', None)
+        normalized.setdefault('sentiment_x_factor', None)
+        normalized.setdefault('geo_x_factor', None)
+        # Clamp any pre-existing numeric values into [-1, +1] defensively.
+        for key in ('sentiment_x_factor', 'geo_x_factor'):
+            value = normalized.get(key)
+            if value is None:
+                continue
+            try:
+                v = float(value)
+                if v != v:  # NaN
+                    normalized[key] = None
+                else:
+                    normalized[key] = round(max(-1.0, min(1.0, v)), 4)
+            except (TypeError, ValueError):
+                normalized[key] = None
         normalized['evaluated'] = bool(normalized.get('evaluated', False))
         return normalized
 
@@ -264,6 +283,8 @@ class PredictionLogger:
         variant: str = "baseline",
         target_horizon: Optional[str] = None,
         geo_adjustment_pct: float = 0.0,
+        sentiment_x_factor: Optional[float] = None,
+        geo_x_factor: Optional[float] = None,
     ) -> Dict:
         """
         Log a new prediction.
@@ -296,6 +317,17 @@ class PredictionLogger:
             f"_{variant}_{target_horizon}"
         )
 
+        def _clamp_x_factor(value: Optional[float]) -> Optional[float]:
+            if value is None:
+                return None
+            try:
+                v = float(value)
+            except (TypeError, ValueError):
+                return None
+            if v != v:  # NaN
+                return None
+            return round(max(-1.0, min(1.0, v)), 4)
+
         entry = {
             'id': entry_id,
             'symbol': symbol,
@@ -314,6 +346,10 @@ class PredictionLogger:
             'confidence': round(confidence, 2),
             'williams_signal': williams_signal,
             'sector': sector,
+            # LLM x_factor signals — observability only, not yet consumed by
+            # the adjustment pipeline. See docs/plans/RFC_prediction_post_process.md.
+            'sentiment_x_factor': _clamp_x_factor(sentiment_x_factor),
+            'geo_x_factor': _clamp_x_factor(geo_x_factor),
             # To be filled later
             'actual_price': None,
             'actual_change_pct': None,

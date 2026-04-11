@@ -808,6 +808,15 @@ Return ONLY valid JSON. No prose before or after the JSON object."""
     result['model'] = model_used
     result['analyzed_at'] = datetime.now().isoformat()
 
+    # x_factor: [-1.0, +1.0] graph-adjustment signal. Guarantee it exists
+    # and is clamped so downstream consumers don't need defensive code.
+    try:
+        x_raw = float(result.get('x_factor', 0.0) or 0.0)
+    except (TypeError, ValueError):
+        x_raw = 0.0
+    result['x_factor'] = max(-1.0, min(1.0, x_raw))
+    result['x_factor_reasoning'] = str(result.get('x_factor_reasoning', ''))[:300]
+
     # Rename verified_events to key_events for compatibility
     if 'verified_events' in result:
         result['key_events'] = result.pop('verified_events')
