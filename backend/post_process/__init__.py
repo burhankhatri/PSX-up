@@ -11,6 +11,7 @@ reasoning, logging, and direction-pivot logic into this package behind a
 """
 
 from backend.post_process._shared import direction_from_change_pct
+from backend.post_process.pipeline import PredictionPipeline
 from backend.post_process.types import (
     PredictionRequest,
     PredictionResult,
@@ -18,6 +19,7 @@ from backend.post_process.types import (
 )
 
 __all__ = [
+    "PredictionPipeline",
     "PredictionRequest",
     "PredictionResult",
     "RunOverrides",
