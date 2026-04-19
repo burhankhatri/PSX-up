@@ -314,46 +314,140 @@ RULES:
 
 ## Quick Start
 
+The project is cross-platform and runs on **macOS, Linux, and Windows** with the same Python code — only the shell commands for activating the virtual environment differ.
+
 ### Prerequisites
 
+| Requirement | Notes |
+|-------------|-------|
+| **Python 3.9+** | [python.org/downloads](https://www.python.org/downloads/) — on Windows, tick **"Add Python to PATH"** in the installer |
+| **pip** | Bundled with modern Python |
+| **git** | [git-scm.com/downloads](https://git-scm.com/downloads) |
+| **curl** | Pre-installed on macOS, Linux, and Windows 10 (1803+) / Windows 11 — no action needed |
+| **LLM API key** | One of the two below (Anthropic **recommended**, Groq as free alternative) |
+
+### LLM API Key — Pick One
+
+The app uses a Large Language Model for sentiment analysis, geopolitical context, and the `x_factor` signal. It supports two providers and will auto-select whichever key is present (Anthropic is tried first when both are set):
+
+- **Anthropic Claude (recommended)** — best quality, supports web search.
+  Get a key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) (the key starts with `sk-ant-`).
+- **Groq (free tier alternative)** — fast, no cost for the Llama 3.3 70B model.
+  Get a key at [console.groq.com/keys](https://console.groq.com/keys) (the key starts with `gsk_`).
+
+You only need **one** of the two. If neither is set, the app still runs — the LLM-driven features just return neutral defaults.
+
+---
+
+### Step-by-Step Setup
+
+#### macOS / Linux
+
 ```bash
-# Required
-Python 3.9+
-pip
-
-# Optional (for sentiment analysis)
-GROQ_API_KEY  # Get from https://console.groq.com
-```
-
-### Installation
-
-```bash
-# Clone
+# 1. Clone the repo
 git clone https://github.com/BurhanCantCode/PSX-up.git
 cd PSX-up
 
-# Create environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# 2. Create a virtual environment
+python3 -m venv venv
 
-# Install dependencies
+# 3. Activate it
+source venv/bin/activate
+
+# 4. Install dependencies
 pip install -r requirements.txt
 
-# Configure (optional)
-echo "GROQ_API_KEY=your_key_here" > .env
-```
+# 5. Configure your LLM API key (Anthropic recommended)
+cp .env.example .env
+# Open .env in your editor and paste your key into ANTHROPIC_API_KEY (or GROQ_API_KEY)
 
-### Running
-
-```bash
-# Development server with auto-reload
+# 6. Run the dev server
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Access
-# UI:       http://localhost:8000/analyzer
-# API Docs: http://localhost:8000/docs
-# Health:   http://localhost:8000/health
 ```
+
+#### Windows — PowerShell
+
+```powershell
+# 1. Clone the repo
+git clone https://github.com/BurhanCantCode/PSX-up.git
+cd PSX-up
+
+# 2. Create a virtual environment
+python -m venv venv
+
+# 3. Activate it
+.\venv\Scripts\Activate.ps1
+# If you get an execution-policy error, run this once (as your user, not admin):
+#   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Configure your LLM API key (Anthropic recommended)
+Copy-Item .env.example .env
+notepad .env
+# Paste your key into ANTHROPIC_API_KEY (or GROQ_API_KEY), save, close
+
+# 6. Run the dev server
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+#### Windows — Command Prompt (cmd.exe)
+
+```cmd
+:: 1. Clone the repo
+git clone https://github.com/BurhanCantCode/PSX-up.git
+cd PSX-up
+
+:: 2. Create a virtual environment
+python -m venv venv
+
+:: 3. Activate it
+venv\Scripts\activate.bat
+
+:: 4. Install dependencies
+pip install -r requirements.txt
+
+:: 5. Configure your LLM API key (Anthropic recommended)
+copy .env.example .env
+notepad .env
+:: Paste your key into ANTHROPIC_API_KEY (or GROQ_API_KEY), save, close
+
+:: 6. Run the dev server
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+---
+
+### Access the App
+
+Once the server is running, open your browser to:
+
+| What | URL |
+|------|-----|
+| **Dashboard UI** | http://localhost:8000/analyzer |
+| **API docs (Swagger)** | http://localhost:8000/docs |
+| **Health check** | http://localhost:8000/health |
+
+### Stopping the Server
+
+Press `Ctrl + C` in the terminal (works on all three platforms).
+
+### Deactivating the virtualenv
+
+- macOS / Linux: `deactivate`
+- Windows (PowerShell or cmd): `deactivate`
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `python: command not found` (macOS/Linux) | Use `python3` instead, or install via [python.org](https://www.python.org/downloads/). |
+| `python` not recognized (Windows) | Re-run the Python installer and tick **"Add Python to PATH"**, then restart the terminal. |
+| PowerShell blocks `Activate.ps1` | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, then retry. |
+| `curl` not found (old Windows) | Upgrade to Windows 10 version 1803+ or Windows 11 — `curl.exe` ships built-in. |
+| Port 8000 already in use | Start on a different port: `python -m uvicorn backend.main:app --port 8080 --reload`. |
+| LLM features return neutral-only | Double-check your `.env` has a valid `ANTHROPIC_API_KEY` **or** `GROQ_API_KEY`. |
 
 ---
 
@@ -471,7 +565,9 @@ vercel --prod
 # Build
 docker build -t psx-fortune-teller .
 
-# Run
+# Run (pick the LLM provider you configured)
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your_key psx-fortune-teller
+# or
 docker run -p 8000:8000 -e GROQ_API_KEY=your_key psx-fortune-teller
 ```
 
@@ -479,7 +575,8 @@ docker run -p 8000:8000 -e GROQ_API_KEY=your_key psx-fortune-teller
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | Optional | For AI sentiment analysis |
+| `ANTHROPIC_API_KEY` | Recommended | Primary LLM for sentiment, geopolitical context, and x_factor signal |
+| `GROQ_API_KEY` | Optional | Fallback LLM (Llama 3.3 70B) if Anthropic is not set |
 | `PORT` | Optional | Server port (default: 8000) |
 | `ENABLE_INDEX_NEWS_RECALL` | Optional | Enable broader KSE100/index recall mode (default: `true`) |
 | `ENABLE_INDEX_RECALL_IN_MODEL` | Optional | Allow index recall to influence model features (default: `false`) |
