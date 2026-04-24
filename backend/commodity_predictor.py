@@ -428,32 +428,34 @@ def merge_external_factors(
     """
     Merge commodity prices with external factors.
     """
+    from backend.external_features import _to_naive_datetime
+
     df = commodity_df.copy()
-    df['Date'] = pd.to_datetime(df['Date'])
-    
+    df['Date'] = _to_naive_datetime(df['Date'])
+
     # Merge industrial indicators
     if not industrial_df.empty:
-        industrial_df['Date'] = pd.to_datetime(industrial_df['Date'])
+        industrial_df['Date'] = _to_naive_datetime(industrial_df['Date'])
         df = pd.merge_asof(
             df.sort_values('Date'),
             industrial_df.sort_values('Date'),
             on='Date',
             direction='backward'
         )
-    
+
     # Merge macro indicators
     if not macro_df.empty:
-        macro_df['Date'] = pd.to_datetime(macro_df['Date'])
+        macro_df['Date'] = _to_naive_datetime(macro_df['Date'])
         df = pd.merge_asof(
             df.sort_values('Date'),
             macro_df.sort_values('Date'),
             on='Date',
             direction='backward'
         )
-    
+
     # Merge USD/PKR
     if usd_pkr_df is not None and not usd_pkr_df.empty:
-        usd_pkr_df['Date'] = pd.to_datetime(usd_pkr_df['Date'])
+        usd_pkr_df['Date'] = _to_naive_datetime(usd_pkr_df['Date'])
         df = pd.merge_asof(
             df.sort_values('Date'),
             usd_pkr_df.sort_values('Date'),

@@ -26,6 +26,23 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List
 
+
+def _to_naive_datetime(series) -> pd.Series:
+    """Coerce a date-like series to tz-naive ``datetime64[ns]``.
+
+    yfinance's DatetimeIndex is tz-aware (UTC) on some platforms / versions;
+    PSX-scraped dates and `pd.to_datetime` on a string column are tz-naive.
+    Mixing them blows up `pd.merge_asof` with
+    ``MergeError: incompatible merge keys [0] dtype('<M8[ns]') and
+    dtype('<M8[ns, UTC]')``. Strip tz so both sides match regardless of where
+    the column came from (Mac vs Windows, yfinance 0.1 vs 0.2, etc.).
+    """
+    s = pd.to_datetime(series, errors='coerce')
+    if getattr(s.dt, 'tz', None) is not None:
+        s = s.dt.tz_localize(None)
+    return s
+
+
 # TradingView scraper
 try:
     from backend.tradingview_scraper import get_tradingview_indicators
@@ -857,22 +874,22 @@ def merge_external_features(stock_df: pd.DataFrame,
         return stock_df
     
     df = stock_df.copy()
-    df['Date'] = pd.to_datetime(df['Date'])
-    
+    df['Date'] = _to_naive_datetime(df['Date'])
+
     # Get date range
     start_date = df['Date'].min().strftime('%Y-%m-%d')
     end_date = df['Date'].max().strftime('%Y-%m-%d')
     start_year = df['Date'].min().year
-    
+
     print(f"\n📊 MERGING EXTERNAL FEATURES")
     print(f"   Date range: {start_date} to {end_date}")
     print("=" * 50)
-    
+
     # 1. USD/PKR
     print("\n1. Fetching USD/PKR...")
     usdpkr = fetch_usd_pkr(start_date=start_date, end_date=end_date)
     if not usdpkr.empty:
-        usdpkr['date'] = pd.to_datetime(usdpkr['date'])
+        usdpkr['date'] = _to_naive_datetime(usdpkr['date'])
         df = pd.merge_asof(
             df.sort_values('Date'),
             usdpkr.sort_values('date'),
@@ -889,6 +906,7 @@ def merge_external_features(stock_df: pd.DataFrame,
         print("\n2. Fetching KSE-100...")
         kse100 = fetch_kse100(start_year=start_year, end_date=end_date)
         if not kse100.empty:
+            kse100['date'] = _to_naive_datetime(kse100['date'])
             df = pd.merge_asof(
                 df.sort_values('Date'),
                 kse100.sort_values('date'),
@@ -948,7 +966,7 @@ def merge_external_features(stock_df: pd.DataFrame,
     commodities = fetch_commodities(start_date=start_date, end_date=end_date)
     if not commodities.empty:
         include_oil_market_features = include_oil_features or not is_oil_sector_symbol(symbol)
-        commodities['date'] = pd.to_datetime(commodities['date'])
+        commodities['date'] = _to_naive_datetime(commodities['date'])
         if not include_oil_market_features:
             oil_cols = [c for c in commodities.columns if c != 'date' and 'oil' in c.lower()]
             commodities = commodities.drop(columns=oil_cols, errors='ignore')
@@ -978,7 +996,7 @@ def merge_external_features(stock_df: pd.DataFrame,
         print("\n4. Fetching Asian Markets (Nikkei, KOSPI)...")
         asian = fetch_asian_markets(start_date=start_date, end_date=end_date)
         if not asian.empty:
-            asian['date'] = pd.to_datetime(asian['date'])
+            asian['date'] = _to_naive_datetime(asian['date'])
             df = pd.merge_asof(
                 df.sort_values('Date'),
                 asian.sort_values('date'),
