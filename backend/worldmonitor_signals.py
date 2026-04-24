@@ -59,6 +59,41 @@ def _write_cache(name: str, payload: dict) -> None:
         pass
 
 
+# Disk-cache for yfinance-sourced DataFrames. yfinance has no persistent cache
+# of its own, so every process restart hit Yahoo for every ticker — that's why
+# the worldmonitor overlay was adding ~7-14s to every `analyze_stock` call even
+# with GDELT/USGS warm. Short TTL (30 min) is fine because price action within
+# half an hour doesn't move the overlay's bounded scores meaningfully.
+YF_CACHE_TTL_SECONDS = 30 * 60
+
+
+def _read_df_cache(name: str, max_age_seconds: int) -> Optional[pd.DataFrame]:
+    """Return a cached DataFrame if present and fresher than `max_age_seconds`."""
+    p = CACHE_DIR / name
+    if not p.exists():
+        return None
+    try:
+        age = time.time() - p.stat().st_mtime
+        if age > max_age_seconds:
+            return None
+        df = pd.read_csv(p)
+        # Preserve datetime dtype for any 'date' column — callers assume this.
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        return df
+    except Exception:
+        return None
+
+
+def _write_df_cache(name: str, df: pd.DataFrame) -> None:
+    """Persist DataFrame to CSV cache. Silent on any failure (fail-open)."""
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        df.to_csv(CACHE_DIR / name, index=False)
+    except Exception:
+        pass
+
+
 def _http_get_json(url: str, timeout: int = 20, retries: int = 2, backoff: float = 1.5) -> Optional[dict]:
     """GET a URL with simple exponential backoff. Returns None on persistent failure."""
     headers = {"User-Agent": "Mozilla/5.0 (compatible; PSXPredictor/1.0)"}
@@ -80,12 +115,19 @@ def _http_get_json(url: str, timeout: int = 20, retries: int = 2, backoff: float
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fetch_vix(start_date: Optional[str] = None, end_date: Optional[str] = None,
-              period: str = "1y") -> pd.DataFrame:
+              period: str = "1y",
+              use_cache: bool = True,
+              cache_ttl_seconds: int = YF_CACHE_TTL_SECONDS) -> pd.DataFrame:
     """CBOE Volatility Index (^VIX). Returns DataFrame with columns:
     date, vix_close, vix_change, vix_zscore_60d, vix_above_25, vix_above_30
     """
     if not YF_OK:
         return pd.DataFrame()
+    cache_key = f"yf_vix_{period or 'range'}_{start_date or ''}_{end_date or ''}.csv"
+    if use_cache:
+        cached = _read_df_cache(cache_key, cache_ttl_seconds)
+        if cached is not None and not cached.empty:
+            return cached
     try:
         kw = dict(progress=False, auto_adjust=True)
         if start_date and end_date:
@@ -105,13 +147,17 @@ def fetch_vix(start_date: Optional[str] = None, end_date: Optional[str] = None,
             "vix_above_25": (close > 25).astype(int).values,
             "vix_above_30": (close > 30).astype(int).values,
         }).reset_index(drop=True)
+        if use_cache and not df.empty:
+            _write_df_cache(cache_key, df)
         return df
     except Exception:
         return pd.DataFrame()
 
 
 def fetch_extended_asian_indices(start_date: Optional[str] = None, end_date: Optional[str] = None,
-                                  period: str = "1y") -> pd.DataFrame:
+                                  period: str = "1y",
+                                  use_cache: bool = True,
+                                  cache_ttl_seconds: int = YF_CACHE_TTL_SECONDS) -> pd.DataFrame:
     """Hang Seng (^HSI) + Sensex (^BSESN) + Nifty (^NSEI).
 
     Returns DataFrame with columns:
@@ -122,6 +168,11 @@ def fetch_extended_asian_indices(start_date: Optional[str] = None, end_date: Opt
     """
     if not YF_OK:
         return pd.DataFrame()
+    cache_key = f"yf_asian_ext_{period or 'range'}_{start_date or ''}_{end_date or ''}.csv"
+    if use_cache:
+        cached = _read_df_cache(cache_key, cache_ttl_seconds)
+        if cached is not None and not cached.empty:
+            return cached
     tickers = {"^HSI": "hsi", "^BSESN": "bsesn", "^NSEI": "nsei"}
     raw: Dict[str, pd.DataFrame] = {}
     for tk in tickers:
@@ -161,7 +212,10 @@ def fetch_extended_asian_indices(start_date: Optional[str] = None, end_date: Opt
     out["extended_asian_avg_return"] = out[chg_cols].mean(axis=1, skipna=True)
     drops = (out[chg_cols].fillna(0) < -0.02).sum(axis=1)
     out["extended_asian_risk_off"] = (drops / max(1, len(chg_cols))).clip(0.0, 1.0)
-    return out.reset_index(drop=True)
+    out = out.reset_index(drop=True)
+    if use_cache and not out.empty:
+        _write_df_cache(cache_key, out)
+    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -267,7 +321,9 @@ def fetch_all_gdelt_topics(timespan: str = "30d") -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fetch_usd_pkr(start_date: Optional[str] = None, end_date: Optional[str] = None,
-                  period: str = "1y") -> pd.DataFrame:
+                  period: str = "1y",
+                  use_cache: bool = True,
+                  cache_ttl_seconds: int = YF_CACHE_TTL_SECONDS) -> pd.DataFrame:
     """USD/PKR exchange rate (yfinance PKR=X). Higher = PKR weaker = bearish.
 
     Returns DataFrame columns: date, usdpkr_close, usdpkr_change,
@@ -275,6 +331,11 @@ def fetch_usd_pkr(start_date: Optional[str] = None, end_date: Optional[str] = No
     """
     if not YF_OK:
         return pd.DataFrame()
+    cache_key = f"yf_usdpkr_{period or 'range'}_{start_date or ''}_{end_date or ''}.csv"
+    if use_cache:
+        cached = _read_df_cache(cache_key, cache_ttl_seconds)
+        if cached is not None and not cached.empty:
+            return cached
     try:
         kw = dict(progress=False, auto_adjust=True)
         if start_date and end_date:
@@ -299,6 +360,8 @@ def fetch_usd_pkr(start_date: Optional[str] = None, end_date: Optional[str] = No
             "usdpkr_zscore_90d": z90.values,
             "usdpkr_weakening_streak": streak.values,
         }).reset_index(drop=True)
+        if use_cache and not df.empty:
+            _write_df_cache(cache_key, df)
         return df
     except Exception:
         return pd.DataFrame()
@@ -309,10 +372,17 @@ def fetch_usd_pkr(start_date: Optional[str] = None, end_date: Optional[str] = No
 # Lightweight wrappers around Yahoo BZ=F / CL=F; keyed on date like everything else.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_crude_prices(period: str = "6mo") -> pd.DataFrame:
+def fetch_crude_prices(period: str = "6mo",
+                        use_cache: bool = True,
+                        cache_ttl_seconds: int = YF_CACHE_TTL_SECONDS) -> pd.DataFrame:
     """Brent + WTI close prices with 1d / 5d returns, for Hormuz-shock confirmation."""
     if not YF_OK:
         return pd.DataFrame()
+    cache_key = f"yf_crude_{period or 'range'}.csv"
+    if use_cache:
+        cached = _read_df_cache(cache_key, cache_ttl_seconds)
+        if cached is not None and not cached.empty:
+            return cached
     out = {"date": None}
     for tk, slug in (("BZ=F", "brent"), ("CL=F", "wti")):
         try:
@@ -331,7 +401,10 @@ def fetch_crude_prices(period: str = "6mo") -> pd.DataFrame:
             continue
     if out["date"] is None:
         return pd.DataFrame()
-    return pd.DataFrame(out).reset_index(drop=True)
+    df = pd.DataFrame(out).reset_index(drop=True)
+    if use_cache and not df.empty:
+        _write_df_cache(cache_key, df)
+    return df
 
 
 # ─────────────────────────────────────────────────────────────────────────────

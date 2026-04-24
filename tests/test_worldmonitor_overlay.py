@@ -331,3 +331,208 @@ class TestQuakeScore:
     def test_old_quake_outside_window_returns_zero(self):
         df = pd.DataFrame({"date": ["2026-01-01"], "quake_count": [1], "max_magnitude": [7.0]})
         assert quake_score_from_df(df, pd.Timestamp("2026-04-01")) == 0.0
+
+
+# ─── fetch_snapshot_for_weights: the hot-path speedup ─────────────────────────
+# The overlay block used to fire 7 synchronous network calls every analyze_stock
+# invocation, even though ablation zeroed 6 of 9 weights. These tests pin the
+# gating + budget + fail-open contract so we don't regress back to a 15s hang.
+
+from backend.worldmonitor_overlay import fetch_snapshot_for_weights
+
+
+class TestFetchSnapshotGating:
+    """Prove that zero-weighted signals skip their network fetch."""
+
+    def _mk_call_tracker(self):
+        calls = []
+        def make(name):
+            def f():
+                calls.append(name)
+                return pd.DataFrame()
+            return f
+        fake = {name: make(name) for name in
+                ("vix", "extended_asian", "gdelt_pk", "gdelt_regional",
+                 "quakes", "pkr", "brent")}
+        return calls, fake
+
+    def test_default_weights_call_only_hormuz_inputs(self):
+        """Default DEFAULT_WEIGHTS zero 6 of 9 → only brent + gdelt_regional fetch."""
+        calls, fake = self._mk_call_tracker()
+        prices = pd.Series(np.linspace(100, 110, 260))
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, fetchers=fake,
+        )
+        assert snap is not None
+        # Only hormuz-relevant fetchers should have fired.
+        assert set(calls) == {"gdelt_regional", "brent"}
+
+    def test_all_external_weights_zero_calls_nothing(self):
+        """When even hormuz=0, no fetchers are called; local-only snapshot."""
+        calls, fake = self._mk_call_tracker()
+        w = dict(DEFAULT_WEIGHTS)
+        for k in ("hormuz", "vix", "extended_asian", "gdelt_tone_delta",
+                  "gdelt_vol_spike", "usgs_quake", "pkr_fx"):
+            w[k] = 0.0
+        prices = pd.Series(np.linspace(100, 110, 260))
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, weights=w, fetchers=fake,
+        )
+        assert snap is not None
+        assert calls == []
+
+    def test_all_weights_nonzero_calls_every_fetcher(self):
+        """If user override turns every signal back on, every fetcher runs."""
+        calls, fake = self._mk_call_tracker()
+        w = {k: 1.0 for k in DEFAULT_WEIGHTS}
+        prices = pd.Series(np.linspace(100, 110, 260))
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, weights=w, fetchers=fake,
+        )
+        assert snap is not None
+        assert set(calls) == {
+            "vix", "extended_asian", "gdelt_pk", "gdelt_regional",
+            "quakes", "pkr", "brent",
+        }
+
+    def test_fetcher_exception_fails_open(self):
+        """A raising fetcher must not crash the overlay — snapshot still returns."""
+        def boom():
+            raise RuntimeError("network dead")
+        fake = {k: boom for k in
+                ("vix", "extended_asian", "gdelt_pk", "gdelt_regional",
+                 "quakes", "pkr", "brent")}
+        prices = pd.Series(np.linspace(100, 110, 260))
+        w = {k: 1.0 for k in DEFAULT_WEIGHTS}
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, weights=w, fetchers=fake,
+        )
+        assert snap is not None
+        # Momentum is local-only — should still be valid.
+        assert isinstance(snap.momentum_score, float)
+
+
+class TestFetchSnapshotBudget:
+    """The budget must kill a slow fetcher instead of blocking the prediction."""
+
+    def test_slow_fetcher_is_cut_by_budget(self):
+        import time as _t
+
+        def slow():
+            _t.sleep(2.0)
+            return pd.DataFrame()
+
+        def fast():
+            return pd.DataFrame()
+
+        fake = {k: fast for k in
+                ("vix", "extended_asian", "gdelt_pk", "quakes", "pkr", "brent")}
+        fake["gdelt_regional"] = slow  # hormuz input hangs
+
+        prices = pd.Series(np.linspace(100, 110, 260))
+        w = {k: 1.0 for k in DEFAULT_WEIGHTS}
+
+        t0 = _t.time()
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, weights=w, fetchers=fake,
+            budget_seconds=0.3,
+        )
+        elapsed = _t.time() - t0
+
+        # Must NOT have waited the full 2s for slow().
+        assert elapsed < 1.5, f"budget ignored, took {elapsed:.2f}s"
+        assert snap is not None  # partial snapshot returned
+
+    def test_default_weights_budget_is_trivial(self):
+        """Under default weights, only 2 fast fetchers run — well under 1s."""
+        import time as _t
+
+        def fast():
+            return pd.DataFrame()
+
+        fake = {k: fast for k in
+                ("vix", "extended_asian", "gdelt_pk", "gdelt_regional",
+                 "quakes", "pkr", "brent")}
+        prices = pd.Series(np.linspace(100, 110, 260))
+
+        t0 = _t.time()
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, fetchers=fake,
+        )
+        elapsed = _t.time() - t0
+
+        assert snap is not None
+        assert elapsed < 1.0, f"default path too slow: {elapsed:.2f}s"
+
+
+# ─── yfinance disk cache ──────────────────────────────────────────────────────
+# yfinance used to fetch on every process start (no persistent cache). These
+# tests pin the TTL-based CSV cache so warm-path is ~10ms instead of 7-14s.
+
+import os
+import time as _time_mod
+
+from backend.worldmonitor_signals import _read_df_cache, _write_df_cache
+
+
+class TestYfinanceDiskCache:
+    def test_missing_file_returns_none(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("backend.worldmonitor_signals.CACHE_DIR", tmp_path)
+        assert _read_df_cache("nope.csv", max_age_seconds=3600) is None
+
+    def test_write_then_read_roundtrip(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("backend.worldmonitor_signals.CACHE_DIR", tmp_path)
+        df = pd.DataFrame({
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            "x": [1.5, 2.5],
+        })
+        _write_df_cache("roundtrip.csv", df)
+        out = _read_df_cache("roundtrip.csv", max_age_seconds=3600)
+        assert out is not None
+        assert len(out) == 2
+        assert float(out["x"].iloc[1]) == 2.5
+        # date should survive roundtrip as datetime
+        assert pd.api.types.is_datetime64_any_dtype(out["date"])
+
+    def test_expired_cache_returns_none(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("backend.worldmonitor_signals.CACHE_DIR", tmp_path)
+        df = pd.DataFrame({"x": [1.0]})
+        _write_df_cache("expired.csv", df)
+        old = _time_mod.time() - 7200  # 2 hours old
+        os.utime(tmp_path / "expired.csv", (old, old))
+        assert _read_df_cache("expired.csv", max_age_seconds=3600) is None
+
+    def test_write_failure_is_silent(self, tmp_path, monkeypatch):
+        """A full disk / readonly cache dir must not crash the overlay."""
+        bad_dir = tmp_path / "does" / "not" / "exist"
+        monkeypatch.setattr("backend.worldmonitor_signals.CACHE_DIR", bad_dir)
+        # Should not raise.
+        _write_df_cache("x.csv", pd.DataFrame({"a": [1]}))
+
+
+class TestYfinanceFetchersUseCache:
+    """The four yfinance-backed fetchers must read/write the CSV cache."""
+
+    def test_fetch_vix_hits_cache_on_second_call(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("backend.worldmonitor_signals.CACHE_DIR", tmp_path)
+        call_count = {"n": 0}
+
+        class _FakeYF:
+            @staticmethod
+            def download(*args, **kwargs):
+                call_count["n"] += 1
+                idx = pd.date_range("2026-01-01", periods=3)
+                return pd.DataFrame({
+                    "Close": [20.0, 21.0, 22.0],
+                    "Open": [20.0, 21.0, 22.0],
+                }, index=idx)
+
+        monkeypatch.setattr("backend.worldmonitor_signals.yf", _FakeYF, raising=False)
+        monkeypatch.setattr("backend.worldmonitor_signals.YF_OK", True, raising=False)
+
+        from backend.worldmonitor_signals import fetch_vix
+        a = fetch_vix(period="3mo")
+        b = fetch_vix(period="3mo")
+        assert not a.empty
+        assert not b.empty
+        assert call_count["n"] == 1, "second call should have hit disk cache"

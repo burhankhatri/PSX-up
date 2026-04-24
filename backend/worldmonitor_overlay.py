@@ -344,6 +344,181 @@ def quake_score_from_df(quake_df: Optional[pd.DataFrame],
         return 0.0
 
 
+# Map DEFAULT_WEIGHTS keys → the fetcher names whose data they consume. Used
+# by `fetch_snapshot_for_weights` to skip network calls for ablation-zeroed
+# signals (VIX/Asian/GDELT-pk/USGS/PKR currently contribute 0 — fetching them
+# is pure waste and was adding ~7-14s to every analyze_stock call).
+_WEIGHT_TO_FETCHERS: Dict[str, tuple] = {
+    "vix":             ("vix",),
+    "extended_asian":  ("extended_asian",),
+    "gdelt_tone_delta":("gdelt_pk",),
+    "gdelt_vol_spike": ("gdelt_pk",),
+    "hormuz":          ("gdelt_regional", "brent"),
+    "usgs_quake":      ("quakes",),
+    "pkr_fx":          ("pkr",),
+    # markov_regime + momentum_20d are local-only (df["Close"]), no fetcher.
+}
+
+
+def _default_fetchers() -> Dict[str, object]:
+    """Real network fetchers, deferred-imported to avoid circular deps + to let
+    tests inject fakes via the `fetchers=` kwarg on fetch_snapshot_for_weights.
+    """
+    from backend.worldmonitor_signals import (
+        fetch_vix, fetch_extended_asian_indices,
+        fetch_gdelt_topic_timeline, GDELT_TOPIC_PACKS,
+        fetch_pakistan_region_quakes, fetch_usd_pkr, fetch_crude_prices,
+    )
+    return {
+        "vix":             lambda: fetch_vix(period="3mo"),
+        "extended_asian":  lambda: fetch_extended_asian_indices(period="3mo"),
+        "gdelt_pk":        lambda: fetch_gdelt_topic_timeline(
+                                       "pk_conflict", GDELT_TOPIC_PACKS["pk_conflict"], timespan="30d"),
+        "gdelt_regional":  lambda: fetch_gdelt_topic_timeline(
+                                       "regional_war", GDELT_TOPIC_PACKS["regional_war"], timespan="30d"),
+        "quakes":          lambda: fetch_pakistan_region_quakes(min_magnitude=5.0, lookback_days=30),
+        "pkr":             lambda: fetch_usd_pkr(period="6mo"),
+        "brent":           lambda: fetch_crude_prices(period="3mo"),
+    }
+
+
+def _needed_fetchers(weights: Dict[str, float]) -> set:
+    """Set of fetcher names whose output will be multiplied by a non-zero weight."""
+    needed = set()
+    for key, fetchers in _WEIGHT_TO_FETCHERS.items():
+        if float(weights.get(key, 0.0)) > 0.0:
+            needed.update(fetchers)
+    return needed
+
+
+def fetch_snapshot_for_weights(
+    symbol: str,
+    close_prices: Optional[pd.Series],
+    weights: Optional[Dict[str, float]] = None,
+    asof: Optional[object] = None,
+    budget_seconds: float = 4.0,
+    fetchers: Optional[Dict[str, object]] = None,
+) -> Optional[WorldmonitorSnapshot]:
+    """Build a `WorldmonitorSnapshot`, fetching only what the weights require.
+
+    Design principles:
+    - **Skip dead signals.** Any weight == 0 → its fetcher is not called. Under
+      current DEFAULT_WEIGHTS only 2 of 7 fetchers fire (gdelt_regional + brent
+      for hormuz); the others are pure waste after ablation.
+    - **Parallel fetches with a budget.** Remaining fetchers run concurrently;
+      any still pending after `budget_seconds` are abandoned. Prediction
+      proceeds with a partial snapshot rather than blocking the user.
+    - **Fail-open.** Exception in a fetcher → treated as empty DataFrame, not a
+      crash.
+    - **Local-only signals are always computed.** Markov regime and momentum
+      need just `close_prices`, no network.
+
+    Returns a `WorldmonitorSnapshot` with whatever data was available. Returns
+    `None` only if something catastrophic happens (caller should treat that as
+    "skip overlay, use baseline predictions").
+    """
+    import concurrent.futures as _cf
+
+    from backend.markov_regime import compute_markov_regime_signal
+    from backend.external_features import _to_naive_datetime
+
+    w = {**DEFAULT_WEIGHTS, **(weights or {})}
+
+    # Normalize asof to tz-naive ns — same contract as the overlay merge logic.
+    if asof is None:
+        asof_ts = pd.Timestamp.now().normalize()
+    else:
+        asof_ts = pd.Timestamp(asof)
+    try:
+        asof_ts = pd.Timestamp(asof_ts.to_datetime64().astype("datetime64[ns]"))
+    except Exception:
+        pass
+
+    # Local-only signals: always free, always safe.
+    markov_score = 0.0
+    try:
+        if close_prices is not None and len(close_prices) > 0:
+            sig = compute_markov_regime_signal(close_prices)
+            if sig is not None:
+                markov_score = float(sig.signal_score)
+    except Exception:
+        markov_score = 0.0
+
+    # Decide what to fetch based on weights.
+    fset = fetchers if fetchers is not None else _default_fetchers()
+    needed = _needed_fetchers(w)
+
+    results: Dict[str, pd.DataFrame] = {}
+    if needed:
+        # Limit worker count to what we actually need so we don't spin up idle
+        # threads on default-weights path (only 2 threads for hormuz inputs).
+        worker_count = max(1, min(len(needed), 4))
+        # NOTE: not using `with` — its __exit__ calls shutdown(wait=True), which
+        # defeats the budget. We shutdown(wait=False) so a slow fetcher can't
+        # block the caller; the thread will run to its own timeout in the bg.
+        pool = _cf.ThreadPoolExecutor(max_workers=worker_count)
+        try:
+            futures = {
+                pool.submit(fset[name]): name
+                for name in needed if name in fset
+            }
+            try:
+                for fut in _cf.as_completed(futures, timeout=budget_seconds):
+                    name = futures[fut]
+                    try:
+                        out = fut.result()
+                        results[name] = out if isinstance(out, pd.DataFrame) else pd.DataFrame()
+                    except Exception:
+                        results[name] = pd.DataFrame()
+            except _cf.TimeoutError:
+                # Budget exhausted. Abandon stragglers — running threads finish
+                # in the background (we don't wait); queued ones are cancelled.
+                for fut, name in futures.items():
+                    if not fut.done():
+                        fut.cancel()
+                        results.setdefault(name, pd.DataFrame())
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    def _last_row(df):
+        if df is None or df.empty or "date" not in df.columns:
+            return None
+        d = df.copy()
+        d["date"] = _to_naive_datetime(d["date"])
+        mask = d["date"] <= asof_ts
+        return d.loc[mask].iloc[-1] if mask.any() else None
+
+    def _last_series(df, col, n=30):
+        if df is None or df.empty or "date" not in df.columns or col not in df.columns:
+            return pd.Series(dtype=float)
+        d = df.copy()
+        d["date"] = _to_naive_datetime(d["date"])
+        return pd.Series(d[d["date"] <= asof_ts].tail(n)[col].values)
+
+    vix_df = results.get("vix", pd.DataFrame())
+    asian_df = results.get("extended_asian", pd.DataFrame())
+    gdelt_pk_df = results.get("gdelt_pk", pd.DataFrame())
+    gdelt_rg_df = results.get("gdelt_regional", pd.DataFrame())
+    quake_df = results.get("quakes", pd.DataFrame())
+    pkr_df = results.get("pkr", pd.DataFrame())
+    brent_df = results.get("brent", pd.DataFrame())
+
+    return collapse_snapshot(
+        vix_row=_last_row(vix_df),
+        asian_row=_last_row(asian_df),
+        gdelt_pk_tone=_last_series(gdelt_pk_df, "gdelt_pk_conflict_tone"),
+        gdelt_pk_vol=_last_series(gdelt_pk_df, "gdelt_pk_conflict_vol"),
+        gdelt_regional_tone=_last_series(gdelt_rg_df, "gdelt_regional_war_tone"),
+        gdelt_regional_vol=_last_series(gdelt_rg_df, "gdelt_regional_war_vol"),
+        quake_df=quake_df,
+        asof_date=asof_ts,
+        markov_signal_score=markov_score,
+        ticker_close_prices=close_prices,
+        pkr_row=_last_row(pkr_df),
+        brent_row=_last_row(brent_df),
+    )
+
+
 def collapse_snapshot(*,
                        vix_row: Optional[pd.Series],
                        asian_row: Optional[pd.Series],
