@@ -3588,13 +3588,74 @@
 
                 const ws = new WebSocket(buildWsUrl(`/ws/progress/${job_id}`));
                 let wsConnected = false;
+                let pipelineFinished = false;  // set true on 'complete' / 'error' — suppresses fallback
+                let fallbackPoll = null;
+                const analysisStartedAt = Date.now();
                 const wsConnectTimer = setTimeout(() => {
                     if (!wsConnected && ws.readyState === WebSocket.CONNECTING) {
                         try { ws.close(); } catch (_) {}
-                        finishLiveProgressPanel(false, 'WebSocket connection timeout. Check backend URL/port and refresh.');
-                        showLoader(false);
+                        startPollingFallback('WebSocket connection timeout — waiting for backend to finish and polling for result...');
                     }
                 }, 10000);
+
+                // ── Polling fallback ─────────────────────────────────────────
+                // The analyze pipeline takes ~5-10 minutes. The event loop can
+                // block long enough on sync subprocess fetches that the WS
+                // times out / errors client-side, even though the backend keeps
+                // running and eventually writes the result to /api/history.
+                // When WS dies, poll /api/history for a prediction dated after
+                // click-time for this symbol. Renders it when it arrives.
+                function startPollingFallback(reason) {
+                    if (pipelineFinished || fallbackPoll) return;
+                    updateLiveProgressPanel(
+                        /* keep current progress */ undefined,
+                        'waiting',
+                        'Live progress unavailable — backend still running. Polling for completed result...'
+                    );
+                    document.getElementById('loaderSub').innerText = 'Polling for result…';
+                    // Poll window: up to 15 min, every 3s. Analysis typically
+                    // completes in <10 min; after that assume it failed.
+                    const deadline = Date.now() + 15 * 60 * 1000;
+                    fallbackPoll = setInterval(async () => {
+                        if (pipelineFinished) { clearInterval(fallbackPoll); fallbackPoll = null; return; }
+                        if (Date.now() > deadline) {
+                            clearInterval(fallbackPoll); fallbackPoll = null;
+                            finishLiveProgressPanel(false, reason + ' (no completed result after 15 minutes)');
+                            showLoader(false);
+                            return;
+                        }
+                        try {
+                            const r = await fetch(`${API_BASE}/api/history?limit=40`);
+                            if (!r.ok) return;
+                            const arr = await r.json();
+                            if (!Array.isArray(arr)) return;
+                            // Find a prediction for THIS symbol that was created
+                            // after our click — i.e. belongs to this run.
+                            const hit = arr.find(p => {
+                                if (!p || p.symbol !== symbol) return false;
+                                const ts = Date.parse(p.prediction_date || '');
+                                return Number.isFinite(ts) && ts >= analysisStartedAt - 5000;
+                            });
+                            if (!hit) return;
+                            clearInterval(fallbackPoll); fallbackPoll = null;
+                            pipelineFinished = true;
+                            // Prefer the complete analysis file if available
+                            let results = null;
+                            try {
+                                const cr = await fetch(`${API_BASE}/api/history/${encodeURIComponent(symbol + '_complete_analysis.json')}`);
+                                if (cr.ok) results = await cr.json();
+                            } catch (_) {}
+                            if (!results) {
+                                // Minimal fallback: synthesize from the history entry
+                                results = { symbol: hit.symbol, predictions: [hit], from_history_fallback: true };
+                            }
+                            renderResults(results);
+                            loadDashboardHistory();
+                            finishLiveProgressPanel(true, 'Backend finished — result retrieved from history.');
+                            showLoader(false);
+                        } catch (_) { /* keep polling */ }
+                    }, 3000);
+                }
 
                 ws.onopen = () => {
                     wsConnected = true;
@@ -3607,25 +3668,35 @@
                     updateLiveProgressPanel(data.progress, data.stage, data.message);
 
                     if (data.stage === 'complete') {
+                        pipelineFinished = true;
+                        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
                         renderResults(data.results);
                         loadDashboardHistory(); // Refresh previous predictions page
-                        ws.close();
+                        try { ws.close(); } catch (_) {}
                         finishLiveProgressPanel(true, 'Pipeline complete. Rendering results...');
                         showLoader(false);
                     } else if (data.stage === 'error') {
+                        pipelineFinished = true;
+                        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
                         alert(data.message);
-                        ws.close();
+                        try { ws.close(); } catch (_) {}
                         finishLiveProgressPanel(false, data.message || 'Pipeline failed');
                         showLoader(false);
                     }
                 };
                 ws.onerror = () => {
                     clearTimeout(wsConnectTimer);
-                    finishLiveProgressPanel(false, 'WebSocket transport error while streaming progress');
-                    showLoader(false);
+                    // Don't bail — the backend may still complete. Poll /api/history.
+                    if (!pipelineFinished) {
+                        startPollingFallback('Live stream dropped — backend may still be running.');
+                    }
                 };
-                ws.onclose = () => {
+                ws.onclose = (e) => {
                     clearTimeout(wsConnectTimer);
+                    // If closed abnormally before completion, fall back to polling.
+                    if (!pipelineFinished && !e.wasClean) {
+                        startPollingFallback('Live stream closed — backend may still be running.');
+                    }
                 };
             } catch (e) {
                 finishLiveProgressPanel(false, e.message || 'Unexpected client error');

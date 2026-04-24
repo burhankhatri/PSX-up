@@ -610,13 +610,18 @@ async def fetch_historical_data_async(symbol: str, progress_callback=None, exist
                         'message': f'Fetching {year}-{month:02d}... ({fetched}/{total_months})'
                     })
                 
-                html = fetch_month_data(symbol, month, year)
-                
+                # Off-loop the blocking subprocess (curl) so asyncio can pump
+                # WebSocket keepalives + handle other requests during the fetch.
+                # Before this wrap, each month-fetch blocked the event loop for
+                # up to 10s, which caused Chrome to close progress WSes as
+                # "transport error" mid-stream.
+                html = await asyncio.to_thread(fetch_month_data, symbol, month, year)
+
                 if html:
                     month_data = parse_html_table(html)
                     if month_data:
                         new_data.extend(month_data)
-                
+
                 await asyncio.sleep(0.05)
         
         # Merge new data with existing (if any) - deduplicate by date
