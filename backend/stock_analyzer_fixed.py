@@ -1984,19 +1984,23 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     _pkr = fetch_usd_pkr(period="6mo")
                     _crude = fetch_crude_prices(period="3mo")
 
-                    _asof = _pd.Timestamp.now().normalize()
+                    # Normalize asof + all compared cols to identical tz-naive [ns]
+                    # so comparisons don't blow up on pandas 2.2+ resolution mismatch.
+                    from backend.external_features import _to_naive_datetime
+                    _asof = _pd.Timestamp.now().normalize().to_datetime64().astype('datetime64[ns]')
+                    _asof = _pd.Timestamp(_asof)
                     def _last_row(_df, _col="date"):
                         if _df is None or _df.empty:
                             return None
                         _d = _df.copy()
-                        _d[_col] = _pd.to_datetime(_d[_col]).dt.tz_localize(None)
+                        _d[_col] = _to_naive_datetime(_d[_col])
                         _m = _d[_col] <= _asof
                         return _d.loc[_m].iloc[-1] if _m.any() else None
                     def _last_series(_df, _col, _vcol, _n=30):
                         if _df is None or _df.empty or _vcol not in _df.columns:
                             return _pd.Series(dtype=float)
                         _d = _df.copy()
-                        _d[_col] = _pd.to_datetime(_d[_col]).dt.tz_localize(None)
+                        _d[_col] = _to_naive_datetime(_d[_col])
                         return _pd.Series(_d[_d[_col] <= _asof].tail(_n)[_vcol].values)
 
                     _markov = compute_markov_regime_signal(df["Close"]) if "Close" in df.columns else None

@@ -405,15 +405,18 @@ def build_worldmonitor_features(start_date: Optional[str] = None,
     Used by `external_features.merge_external_features` as a single new merge
     block. Returns empty DataFrame if everything fails (graceful no-op).
     """
+    # Lazy import to avoid circular dep at module load.
+    from backend.external_features import _to_naive_datetime
+
     parts: List[pd.DataFrame] = []
     vix = fetch_vix(start_date=start_date, end_date=end_date, period=period)
     if not vix.empty:
-        vix["date"] = pd.to_datetime(vix["date"]).dt.tz_localize(None)
+        vix["date"] = _to_naive_datetime(vix["date"])
         parts.append(vix)
 
     asian = fetch_extended_asian_indices(start_date=start_date, end_date=end_date, period=period)
     if not asian.empty:
-        asian["date"] = pd.to_datetime(asian["date"]).dt.tz_localize(None)
+        asian["date"] = _to_naive_datetime(asian["date"])
         parts.append(asian)
 
     if not parts:

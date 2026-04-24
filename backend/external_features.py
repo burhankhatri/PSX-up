@@ -30,17 +30,31 @@ from typing import Dict, Tuple, Optional, List
 def _to_naive_datetime(series) -> pd.Series:
     """Coerce a date-like series to tz-naive ``datetime64[ns]``.
 
-    yfinance's DatetimeIndex is tz-aware (UTC) on some platforms / versions;
-    PSX-scraped dates and `pd.to_datetime` on a string column are tz-naive.
-    Mixing them blows up `pd.merge_asof` with
-    ``MergeError: incompatible merge keys [0] dtype('<M8[ns]') and
-    dtype('<M8[ns, UTC]')``. Strip tz so both sides match regardless of where
-    the column came from (Mac vs Windows, yfinance 0.1 vs 0.2, etc.).
+    Two failure modes we defend against in one helper:
+
+    1. **Timezone mismatch** — yfinance's DatetimeIndex is tz-aware (UTC) in
+       some versions; PSX-scraped / string-parsed dates are tz-naive. Mixing
+       breaks ``pd.merge_asof`` with
+       ``MergeError: incompatible merge keys [0] dtype('<M8[ns]') and
+       dtype('<M8[ns, UTC]')``.
+    2. **Resolution mismatch** — pandas 2.2+ preserves the input resolution
+       of ``pd.to_datetime``. One side can come back ``datetime64[us]``,
+       another ``datetime64[s]`` (or ``[ns]``). ``merge_asof`` rejects that
+       with ``incompatible merge keys [0] dtype('<M8[us]') and dtype('<M8[s]')``.
+
+    This helper:
+      - strips tz if present
+      - normalizes to ``datetime64[ns]`` regardless of input resolution
+
+    so every merge key this passes through is guaranteed-comparable.
     """
     s = pd.to_datetime(series, errors='coerce')
     if getattr(s.dt, 'tz', None) is not None:
         s = s.dt.tz_localize(None)
-    return s
+    try:
+        return s.astype('datetime64[ns]')
+    except (TypeError, ValueError):
+        return s
 
 
 # TradingView scraper

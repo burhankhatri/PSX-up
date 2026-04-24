@@ -38,6 +38,7 @@ from backend.worldmonitor_signals import (
     fetch_pakistan_region_quakes,
     fetch_usd_pkr, fetch_crude_prices,
 )
+from backend.external_features import _to_naive_datetime
 from backend.markov_regime import compute_markov_regime_signal
 from backend.worldmonitor_overlay import (
     collapse_snapshot, apply_worldmonitor_overlay, DEFAULT_WEIGHTS,
@@ -64,7 +65,7 @@ def load_predictions() -> Tuple[List[Dict], datetime, float]:
     issue_date = pd.to_datetime(payload["generated_at"]).normalize()
     # Find the current_price the model used (closest historical to issue_date)
     hist = pd.DataFrame(json.loads(HIST_FILE.read_text()))
-    hist["Date"] = pd.to_datetime(hist["Date"]).dt.normalize()
+    hist["Date"] = _to_naive_datetime(hist["Date"]).dt.normalize()
     prior = hist[hist["Date"] <= issue_date]
     current_price = float(prior.iloc[-1]["Close"]) if len(prior) else float(daily[0]["predicted_price"])
     return daily, issue_date, current_price
@@ -73,14 +74,14 @@ def load_predictions() -> Tuple[List[Dict], datetime, float]:
 def load_actuals(start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """Actual OGDC closes between start_date and end_date inclusive."""
     hist = pd.DataFrame(json.loads(HIST_FILE.read_text()))
-    hist["Date"] = pd.to_datetime(hist["Date"]).dt.normalize()
+    hist["Date"] = _to_naive_datetime(hist["Date"]).dt.normalize()
     mask = (hist["Date"] >= start_date) & (hist["Date"] <= end_date)
     return hist.loc[mask, ["Date", "Close"]].reset_index(drop=True)
 
 
 def load_history_for_markov() -> pd.DataFrame:
     return pd.DataFrame(json.loads(HIST_FILE.read_text())).assign(
-        Date=lambda d: pd.to_datetime(d["Date"]).dt.normalize()
+        Date=lambda d: _to_naive_datetime(d["Date"]).dt.normalize()
     )
 
 
@@ -131,7 +132,7 @@ def asof_row(df: pd.DataFrame, date_col: str, asof: pd.Timestamp) -> Optional[pd
     if df is None or df.empty:
         return None
     d = df.copy()
-    d[date_col] = pd.to_datetime(d[date_col]).dt.normalize()
+    d[date_col] = _to_naive_datetime(d[date_col]).dt.normalize()
     mask = d[date_col] <= asof
     if not mask.any():
         return None
@@ -144,7 +145,7 @@ def asof_series(df: pd.DataFrame, date_col: str, value_col: str,
     if df is None or df.empty or value_col not in df.columns:
         return pd.Series(dtype=float)
     d = df.copy()
-    d[date_col] = pd.to_datetime(d[date_col]).dt.normalize()
+    d[date_col] = _to_naive_datetime(d[date_col]).dt.normalize()
     sub = d[d[date_col] <= asof].tail(lookback)
     return pd.Series(sub[value_col].values)
 
