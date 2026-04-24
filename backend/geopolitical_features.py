@@ -209,43 +209,49 @@ DOWNSTREAM_VULNERABILITY: Dict[str, Dict[str, float | str]] = {
         "fx_offset": 0.08,
     },
     "LUCK": {
+        # Revised 2026-04-24 (Agent 3 research): sector-average cement energy is
+        # ~60% of COGS (MDPI 2024); LUCK specifically runs ~56% renewable +
+        # waste-heat captive power, lowest fuel cost/ton in sector. Realistic
+        # energy_drag ~0.50, not 0.85.
         "sector": "cement",
-        "energy_input_drag": 0.85,
+        "energy_input_drag": 0.50,
         "interest_rate_drag": 0.65,
         "consumer_demand_drag": 0.55,
         "fx_offset": 0.00,
     },
     "CHCC": {
         "sector": "cement",
-        "energy_input_drag": 0.82,
+        "energy_input_drag": 0.65,
         "interest_rate_drag": 0.60,
         "consumer_demand_drag": 0.50,
         "fx_offset": 0.00,
     },
     "DGKC": {
+        # Revised: 70% in-house generation (60MW coal + 32MW waste-heat) →
+        # ~0.70, not 0.84. FY25 gross margin swings ~10pp with coal prices.
         "sector": "cement",
-        "energy_input_drag": 0.84,
+        "energy_input_drag": 0.70,
         "interest_rate_drag": 0.65,
         "consumer_demand_drag": 0.55,
         "fx_offset": 0.00,
     },
     "MLCF": {
         "sector": "cement",
-        "energy_input_drag": 0.83,
+        "energy_input_drag": 0.70,
         "interest_rate_drag": 0.64,
         "consumer_demand_drag": 0.54,
         "fx_offset": 0.00,
     },
     "FCCL": {
         "sector": "cement",
-        "energy_input_drag": 0.80,
+        "energy_input_drag": 0.65,
         "interest_rate_drag": 0.62,
         "consumer_demand_drag": 0.52,
         "fx_offset": 0.00,
     },
     "KOHC": {
         "sector": "cement",
-        "energy_input_drag": 0.78,
+        "energy_input_drag": 0.60,
         "interest_rate_drag": 0.58,
         "consumer_demand_drag": 0.48,
         "fx_offset": 0.00,
@@ -298,6 +304,144 @@ DOWNSTREAM_VULNERABILITY: Dict[str, Dict[str, float | str]] = {
         "interest_rate_drag": 0.20,
         "consumer_demand_drag": 0.15,
         "fx_offset": 0.35,
+    },
+    # ── Banking (added 2026-04-24): negative interest_rate_drag because banks
+    # BENEFIT from rate hikes via NIM expansion. 2023: Pakistan banks +82% profits
+    # at 22% policy rate. 2024-25 rate-cut cycle inverted this: banking now sees
+    # margin compression while autos/cement get rate tailwinds.
+    "HBL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.85,   # benefits from rate hikes
+        "consumer_demand_drag": 0.25,  # consumer-loan book exposure
+        "fx_offset": 0.10,
+    },
+    "UBL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.85,
+        "consumer_demand_drag": 0.30,
+        "fx_offset": 0.10,
+    },
+    "MCB": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.80,
+        "consumer_demand_drag": 0.20,
+        "fx_offset": 0.10,
+    },
+    "BAHL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.75,
+        "consumer_demand_drag": 0.25,
+        "fx_offset": 0.10,
+    },
+    "NBP": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.70,
+        "consumer_demand_drag": 0.30,
+        "fx_offset": 0.10,
+    },
+    "MEBL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.80,
+        "consumer_demand_drag": 0.20,
+        "fx_offset": 0.10,
+    },
+    "FABL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.75,
+        "consumer_demand_drag": 0.25,
+        "fx_offset": 0.10,
+    },
+    "ABL": {
+        "sector": "banking",
+        "energy_input_drag": 0.05,
+        "interest_rate_drag": -0.80,
+        "consumer_demand_drag": 0.25,
+        "fx_offset": 0.10,
+    },
+    # ── OMC (Oil Marketing Companies, added 2026-04-24): inventory gains on
+    # up-move in crude; LC forex loss on PKR weakness. PSO receivables heavily
+    # exposed to power sector circular debt.
+    "PSO": {
+        "sector": "omc",
+        "energy_input_drag": -0.30,    # negative: benefits from crude up-moves
+        "interest_rate_drag": 0.40,
+        "consumer_demand_drag": 0.30,
+        "fx_offset": -0.40,            # hit by PKR weakness (LC losses)
+    },
+    "HASCOL": {
+        "sector": "omc",
+        "energy_input_drag": -0.25,
+        "interest_rate_drag": 0.45,
+        "consumer_demand_drag": 0.35,
+        "fx_offset": -0.40,
+    },
+    "APL": {
+        "sector": "omc",
+        "energy_input_drag": -0.25,
+        "interest_rate_drag": 0.35,
+        "consumer_demand_drag": 0.25,
+        "fx_offset": -0.35,
+    },
+    # ── Power (added 2026-04-24): circular debt sensitive; imported coal
+    # partially exposes to FX + crude.
+    "HUBC": {
+        "sector": "power",
+        "energy_input_drag": 0.35,     # imported coal cost exposure
+        "interest_rate_drag": 0.30,
+        "consumer_demand_drag": 0.15,
+        "fx_offset": -0.15,
+    },
+    "KEL": {
+        "sector": "power",
+        "energy_input_drag": 0.45,
+        "interest_rate_drag": 0.30,
+        "consumer_demand_drag": 0.15,
+        "fx_offset": -0.20,
+    },
+    "KAPCO": {
+        "sector": "power",
+        "energy_input_drag": 0.30,
+        "interest_rate_drag": 0.30,
+        "consumer_demand_drag": 0.10,
+        "fx_offset": -0.10,
+    },
+    # ── Fertilizer (added 2026-04-24): split by gas feedstock network.
+    # FFC on Mari gas (Rs580/mmbtu) is insulated; FFBL/EFERT on SNGP/SSGC
+    # (Rs1,580-1,600) are margin-compressed during gas-price hikes.
+    "FFC": {
+        "sector": "fertilizer",
+        "energy_input_drag": 0.25,     # subsidised gas cushion
+        "interest_rate_drag": 0.30,
+        "consumer_demand_drag": 0.20,
+        "fx_offset": 0.05,
+    },
+    "EFERT": {
+        "sector": "fertilizer",
+        "energy_input_drag": 0.70,     # SNGP network, exposed
+        "interest_rate_drag": 0.30,
+        "consumer_demand_drag": 0.25,
+        "fx_offset": 0.05,
+    },
+    "FATIMA": {
+        "sector": "fertilizer",
+        "energy_input_drag": 0.30,
+        "interest_rate_drag": 0.25,
+        "consumer_demand_drag": 0.20,
+        "fx_offset": 0.05,
+    },
+    "FFBL": {
+        "sector": "fertilizer",
+        "energy_input_drag": 0.75,     # SSGC network, heavily exposed
+        "interest_rate_drag": 0.35,
+        "consumer_demand_drag": 0.30,
+        "fx_offset": 0.05,
     },
 }
 

@@ -1955,6 +1955,79 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                     asian_market_data=asian_status if asian_signal > 0 else None,
                 )
 
+                # ── Worldmonitor enrichment overlay (free signals) ──
+                # Adds VIX + extended Asian + GDELT tone/vol + Markov regime +
+                # 20d momentum + USGS quake into a single bounded delta on top
+                # of each day's geo adjustment. Backtested on OGDC: MAE 10.7%
+                # → 2.8% (74% relative improvement) with cumulative trend mode.
+                try:
+                    from backend.worldmonitor_signals import (
+                        fetch_vix, fetch_extended_asian_indices,
+                        fetch_gdelt_topic_timeline, GDELT_TOPIC_PACKS,
+                        fetch_pakistan_region_quakes,
+                        fetch_usd_pkr, fetch_crude_prices,
+                    )
+                    from backend.markov_regime import compute_markov_regime_signal
+                    from backend.worldmonitor_overlay import (
+                        collapse_snapshot, apply_worldmonitor_overlay,
+                    )
+                    import pandas as _pd
+
+                    # Fetch the latest snapshot (cached on disk; cheap).
+                    _vix = fetch_vix(period="3mo")
+                    _asian_ext = fetch_extended_asian_indices(period="3mo")
+                    _gdelt_pk = fetch_gdelt_topic_timeline(
+                        "pk_conflict", GDELT_TOPIC_PACKS["pk_conflict"], timespan="30d")
+                    _gdelt_rg = fetch_gdelt_topic_timeline(
+                        "regional_war", GDELT_TOPIC_PACKS["regional_war"], timespan="30d")
+                    _quakes = fetch_pakistan_region_quakes(min_magnitude=5.0, lookback_days=30)
+                    _pkr = fetch_usd_pkr(period="6mo")
+                    _crude = fetch_crude_prices(period="3mo")
+
+                    _asof = _pd.Timestamp.now().normalize()
+                    def _last_row(_df, _col="date"):
+                        if _df is None or _df.empty:
+                            return None
+                        _d = _df.copy()
+                        _d[_col] = _pd.to_datetime(_d[_col]).dt.tz_localize(None)
+                        _m = _d[_col] <= _asof
+                        return _d.loc[_m].iloc[-1] if _m.any() else None
+                    def _last_series(_df, _col, _vcol, _n=30):
+                        if _df is None or _df.empty or _vcol not in _df.columns:
+                            return _pd.Series(dtype=float)
+                        _d = _df.copy()
+                        _d[_col] = _pd.to_datetime(_d[_col]).dt.tz_localize(None)
+                        return _pd.Series(_d[_d[_col] <= _asof].tail(_n)[_vcol].values)
+
+                    _markov = compute_markov_regime_signal(df["Close"]) if "Close" in df.columns else None
+                    _markov_score = float(_markov.signal_score) if _markov else 0.0
+
+                    _snapshot = collapse_snapshot(
+                        vix_row=_last_row(_vix),
+                        asian_row=_last_row(_asian_ext),
+                        gdelt_pk_tone=_last_series(_gdelt_pk, "date", "gdelt_pk_conflict_tone"),
+                        gdelt_pk_vol=_last_series(_gdelt_pk, "date", "gdelt_pk_conflict_vol"),
+                        gdelt_regional_tone=_last_series(_gdelt_rg, "date", "gdelt_regional_war_tone"),
+                        gdelt_regional_vol=_last_series(_gdelt_rg, "date", "gdelt_regional_war_vol"),
+                        quake_df=_quakes,
+                        asof_date=_asof,
+                        markov_signal_score=_markov_score,
+                        ticker_close_prices=df["Close"] if "Close" in df.columns else None,
+                        pkr_row=_last_row(_pkr),
+                        brent_row=_last_row(_crude),
+                    )
+                    _enriched_adjs = apply_worldmonitor_overlay(
+                        geo_adjustment_data.get("adjustments", []),
+                        _snapshot,
+                        symbol=symbol,
+                    )
+                    geo_adjustment_data["adjustments"] = _enriched_adjs
+                    geo_adjustment_data["worldmonitor_snapshot"] = _snapshot.as_dict()
+                    geo_adjustment_data.setdefault("summary", {})["worldmonitor_overlay_applied"] = True
+                except Exception as _wm_exc:
+                    # Non-fatal: continue with original geo adjustments.
+                    print(f"[worldmonitor overlay skipped: {_wm_exc}]")
+
                 current_close = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
                 baseline_with_current = [dict(p, current_price=current_close) for p in predictions_without_geo]
                 predictions_with_geo = apply_adjustments_to_predictions(

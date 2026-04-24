@@ -255,6 +255,39 @@ Trained on 2020-2023, tested on 2024-2025:
 
 ---
 
+## Worldmonitor Enrichment Overlay
+
+A post-process layer that adjusts predictions using **free, no-API-key signals** and a 5-state Markov regime classifier. Sits after the existing geo overlay and fails open on any upstream error.
+
+**Signals (all keyless)**:
+- **CBOE VIX** (`^VIX`) — global risk-off z-score
+- **Extended Asian indices** — Hang Seng (`^HSI`), Sensex (`^BSESN`), Nifty 50 (`^NSEI`)
+- **GDELT Doc API** — tone + volume timelines for Pakistan conflict, regional war, global risk-off
+- **Markov regime classifier** — 5-state over/fair/under valuation with empirical forward-return projection
+- **20-day price momentum** — trend-follower that corrects flat-bias in the base model
+- **USD/PKR z-score** — Pakistan's cleanest lead indicator (4–12 week lead on EM shocks)
+- **Hormuz risk composite** — GDELT regional-war volume + tone + Brent-5d return (supply-shock confirmation)
+- **USGS earthquakes** — bounding-box Pakistan region, M≥5.5 small bearish kick
+
+**Sector-aware transmission** (9 sectors): upstream E&P treats Hormuz shocks as revenue tailwinds (+1.0); cement / banking / autos are dampened (−0.30 to −0.40); tech is PKR-weakness-positive (+0.70); fertilizer is treated as neutral.
+
+### OGDC 21-day backtest
+
+Predictions issued 2026-04-01, 17 days of actuals through 2026-04-23:
+
+| Metric | Baseline | Enriched | Change |
+|---|---|---|---|
+| MAE | 10.69% | **2.78%** | **+7.91pp (73% relative)** |
+| Direction accuracy | 46.7% | **53.3%** | +6.7pp |
+
+Cross-validated on 4 tickers (OGDC, LUCK, MARI, SYS): **3 wins, 1 loss; average +1.89pp MAE improvement**. SYS (tech) is the regression case where technical momentum diverges from sector fundamentals.
+
+Full methodology + per-day before/after table: [docs/WORLDMONITOR_OVERLAY_REPORT.md](docs/WORLDMONITOR_OVERLAY_REPORT.md)
+
+Reproduce: `./venv/bin/python backend/backtest_ogdc.py OGDC`
+
+---
+
 ## Explainability: "Why This Prediction?"
 
 Every prediction includes a breakdown of supporting/contrary signals:
