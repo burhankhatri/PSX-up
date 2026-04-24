@@ -1513,8 +1513,11 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'message': '🔬 Training research ensemble (SVM 35% + MLP 35% + GB 15% + Ridge 15%)...'
             })
             
-            # Train model (includes external features + validated indicators)
-            metrics = research_model.fit(df, verbose=False)
+            # Train model (includes external features + validated indicators).
+            # Off-loop to a thread so the event loop can keep serving other
+            # requests (e.g. loadFromFile polling /api/history) + pump WS
+            # keepalives during the multi-second fit.
+            metrics = await asyncio.to_thread(research_model.fit, df, False)
             
             # Check if accuracy is realistic
             benchmarks = get_realistic_benchmarks()
@@ -1612,8 +1615,10 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             quality_score = 0.5  # Default neutral
             try:
                 from backend.sentiment_analyzer import get_stock_sentiment
-                # Quick sentiment check for quality score
-                sentiment_result = get_stock_sentiment(symbol, use_cache=True)
+                # Quick sentiment check for quality score.
+                # Wrapped in to_thread: sentiment internally does blocking
+                # subprocess.run(curl) calls that would stall the event loop.
+                sentiment_result = await asyncio.to_thread(get_stock_sentiment, symbol, True)
                 quality_score = sentiment_result.get('quality_score', 0.5)
                 if quality_score > 0.55:
                     await websocket.send_json({
@@ -1638,8 +1643,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
                 'message': '🤖 Training 6-model SOTA ensemble (RF, ET, GB, XGBoost, LightGBM, Ridge)...'
             })
             
-            # Train model
-            metrics = sota_model.fit(df, verbose=False)
+            # Train model — off-loop so event loop stays responsive.
+            metrics = await asyncio.to_thread(sota_model.fit, df, False)
             
             await websocket.send_json({
                 'stage': 'training',
@@ -1730,12 +1735,17 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
             from backend.sentiment_analyzer import get_stock_sentiment
             from backend.sentiment_math import get_rigorous_adjustment, apply_adjustments_to_predictions
             
-            # Fetch and analyze news with Groq (anti-hallucination prompt)
-            sentiment_result = get_stock_sentiment(
-                symbol,
-                use_cache=False,
-                geo_mode=geo_enabled,
-                geo_prompt_context=geo_prompt_context if geo_enabled else None,
+            # Fetch and analyze news with Groq (anti-hallucination prompt).
+            # This is the biggest blocker in the analysis: sync curl-based
+            # scraping of Business Recorder, PSX notices, etc. Off-loop so
+            # /health and loadFromFile keep working during the scrape.
+            sentiment_result = await asyncio.to_thread(
+                lambda: get_stock_sentiment(
+                    symbol,
+                    use_cache=False,
+                    geo_mode=geo_enabled,
+                    geo_prompt_context=geo_prompt_context if geo_enabled else None,
+                )
             )
             
             enable_index_recall_in_model = _rcfg.enable_index_recall_in_model if _rcfg else (
