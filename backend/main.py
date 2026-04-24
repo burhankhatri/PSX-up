@@ -640,8 +640,8 @@ async def api_analyze(request: AnalyzeRequest):
             raise HTTPException(status_code=503, detail="KSE100 analyzer not available")
         
         try:
-            # Run KSE100 analysis (synchronous)
-            result = analyze_kse100(horizon=365)
+            # Run KSE100 analysis — off-loop (heavy sync work).
+            result = await asyncio.to_thread(analyze_kse100, 365)
             
             # Format response to match stock analyzer format
             return {
@@ -839,11 +839,15 @@ async def get_asian_market_status():
     """
     try:
         from backend.external_features import fetch_asian_market_realtime
-        return fetch_asian_market_realtime()
+        # Off-loop: fetch_asian_market_realtime calls yfinance (blocking net
+        # I/O). Running it directly in an async handler blocks the event
+        # loop until Yahoo responds — caused /health to time out when
+        # multiple clients hit this endpoint during a busy analyze.
+        return await asyncio.to_thread(fetch_asian_market_realtime)
     except ImportError:
         try:
             from external_features import fetch_asian_market_realtime
-            return fetch_asian_market_realtime()
+            return await asyncio.to_thread(fetch_asian_market_realtime)
         except ImportError:
             return {
                 "error": "Asian market module not available",
@@ -903,12 +907,13 @@ try:
                         "from_cache": True
                     }
             
-            # Run fresh scan
-            results = run_screener(limit=min(limit, 50))
-            
+            # Run fresh scan — off-loop (run_screener does yfinance + curl
+            # scraping across 50 stocks, minutes of blocking I/O).
+            results = await asyncio.to_thread(run_screener, min(limit, 50))
+
             # Save to cache
             save_screener_cache(results)
-            
+
             return {"success": True, "top_picks": results, "from_cache": False}
         except Exception as e:
             return {"success": False, "error": str(e), "top_picks": []}
@@ -917,7 +922,8 @@ try:
     async def trending():
         """Get trending/hot stocks"""
         try:
-            stocks = get_cached_trending_stocks()
+            # Off-loop: hot_stocks fetches via subprocess curl.
+            stocks = await asyncio.to_thread(get_cached_trending_stocks)
             return {"success": True, "stocks": stocks}
         except Exception as e:
             return {"success": False, "error": str(e), "stocks": []}
@@ -926,7 +932,9 @@ try:
     async def sentiment(symbol: str):
         """Get AI sentiment analysis for a stock"""
         try:
-            result = get_stock_sentiment(symbol.upper())
+            # Off-loop: sentiment_analyzer scrapes Business Recorder + PSX
+            # via subprocess.run(curl) — ~10-30s per call.
+            result = await asyncio.to_thread(get_stock_sentiment, symbol.upper())
             return {"success": True, "sentiment": result}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -1056,8 +1064,8 @@ if COMMODITY_AVAILABLE:
                 'message': f'Training {commodity.title()} prediction model...',
             })
             
-            # Run full analysis
-            result = analyze_commodity(commodity)
+            # Run full analysis — off-loop (does blocking yfinance + curl).
+            result = await asyncio.to_thread(analyze_commodity, commodity)
             
             await websocket.send_json({
                 'stage': 'complete',
@@ -1102,11 +1110,24 @@ async def get_oil_tracker():
             "RB=F": {"name": "RBOB Gasoline", "unit": "USD/gal", "emoji": "⛽"},
         }
 
+        # Fetch each ticker's 6mo history on threadpool threads so the event
+        # loop stays free during these 5 blocking yfinance calls.
+        async def _fetch_one(symbol):
+            try:
+                return symbol, await asyncio.to_thread(lambda: yf.Ticker(symbol).history(period="6mo"))
+            except Exception as e:
+                print(f"⚠️ Oil tracker: failed to fetch {symbol}: {e}")
+                return symbol, None
+
+        fetch_results = await asyncio.gather(*[_fetch_one(s) for s in tickers.keys()])
+        fetched_hists = dict(fetch_results)
+
         results = []
         for symbol, meta in tickers.items():
             try:
-                tk = yf.Ticker(symbol)
-                hist = tk.history(period="6mo")
+                hist = fetched_hists.get(symbol)
+                if hist is None:
+                    continue
                 if hist.empty:
                     continue
 

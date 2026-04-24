@@ -678,7 +678,10 @@ def fetch_asian_market_realtime() -> Dict:
                 (datetime.now() - cached_at).total_seconds() < 300
                 and _asian_realtime_payload_usable(cached)
             ):
-                return cached
+                # Older caches may contain raw NaN floats (Python's json.load
+                # accepts them, but Starlette's response encoder rejects them
+                # later with "Out of range float values are not JSON compliant").
+                return _sanitize_json_floats(cached)
         except Exception:
             pass
 
@@ -752,6 +755,12 @@ def fetch_asian_market_realtime() -> Dict:
     ks_change = result.get("kospi", {}).get("change_pct") or 0
     result["asian_avg_return"] = round((nk_change + ks_change) / 2.0, 2)
 
+    # Sanitize NaN/Inf float values before returning — Python's default JSON
+    # encoder + Starlette's response renderer both reject NaN (raises
+    # ValueError: Out of range float values are not JSON compliant). Happens
+    # when yfinance returns NaN on a pre-open / weekend / holiday fetch.
+    result = _sanitize_json_floats(result)
+
     # Cache result
     if _asian_realtime_payload_usable(result):
         try:
@@ -762,6 +771,22 @@ def fetch_asian_market_realtime() -> Dict:
             pass
 
     return result
+
+
+def _sanitize_json_floats(obj):
+    """Recursively replace NaN / +/-Inf floats with None so the object
+    survives JSON serialization. Safe for deeply-nested dicts/lists."""
+    import math as _math
+    if isinstance(obj, float):
+        if _math.isnan(obj) or _math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json_floats(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        sanitized = [_sanitize_json_floats(v) for v in obj]
+        return sanitized if isinstance(obj, list) else tuple(sanitized)
+    return obj
 
 
 # ============================================================================
