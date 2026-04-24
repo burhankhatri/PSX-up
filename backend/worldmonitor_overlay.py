@@ -416,8 +416,19 @@ def fetch_snapshot_for_weights(
     Returns a `WorldmonitorSnapshot` with whatever data was available. Returns
     `None` only if something catastrophic happens (caller should treat that as
     "skip overlay, use baseline predictions").
+
+    Implementation note: we use raw daemon `threading.Thread` rather than
+    `ThreadPoolExecutor`. The pool's threads are non-daemon and not cleanly
+    killable — `shutdown(wait=False, cancel_futures=True)` returns immediately,
+    but workers mid-`fn()` keep running and block process exit. Under
+    `uvicorn --reload` that becomes a deadlock: the reload supervisor tries to
+    kill the worker subprocess, the subprocess can't exit because of our live
+    non-daemon threads, reload hangs, server appears wedged on the socket.
+    Daemon threads let the subprocess die cleanly when uvicorn reloads.
     """
-    import concurrent.futures as _cf
+    import threading
+    import time as _t
+    import queue as _queue
 
     from backend.markov_regime import compute_markov_regime_signal
     from backend.external_features import _to_naive_datetime
@@ -450,35 +461,47 @@ def fetch_snapshot_for_weights(
 
     results: Dict[str, pd.DataFrame] = {}
     if needed:
-        # Limit worker count to what we actually need so we don't spin up idle
-        # threads on default-weights path (only 2 threads for hormuz inputs).
-        worker_count = max(1, min(len(needed), 4))
-        # NOTE: not using `with` — its __exit__ calls shutdown(wait=True), which
-        # defeats the budget. We shutdown(wait=False) so a slow fetcher can't
-        # block the caller; the thread will run to its own timeout in the bg.
-        pool = _cf.ThreadPoolExecutor(max_workers=worker_count)
-        try:
-            futures = {
-                pool.submit(fset[name]): name
-                for name in needed if name in fset
-            }
+        out_q: "_queue.Queue[tuple]" = _queue.Queue()
+
+        def _run(name, fn):
             try:
-                for fut in _cf.as_completed(futures, timeout=budget_seconds):
-                    name = futures[fut]
-                    try:
-                        out = fut.result()
-                        results[name] = out if isinstance(out, pd.DataFrame) else pd.DataFrame()
-                    except Exception:
-                        results[name] = pd.DataFrame()
-            except _cf.TimeoutError:
-                # Budget exhausted. Abandon stragglers — running threads finish
-                # in the background (we don't wait); queued ones are cancelled.
-                for fut, name in futures.items():
-                    if not fut.done():
-                        fut.cancel()
-                        results.setdefault(name, pd.DataFrame())
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
+                rv = fn()
+                out_q.put((name, rv if isinstance(rv, pd.DataFrame) else pd.DataFrame()))
+            except Exception:
+                out_q.put((name, pd.DataFrame()))
+
+        launched = []
+        for name in needed:
+            if name not in fset:
+                continue
+            th = threading.Thread(
+                target=_run, args=(name, fset[name]),
+                daemon=True,  # critical: must not block process exit under uvicorn --reload
+                name=f"wm-fetch-{name}",
+            )
+            th.start()
+            launched.append((name, th))
+
+        # Join each thread with the remaining share of the overall budget so
+        # that one slow fetcher can't eat the whole window.
+        deadline = _t.monotonic() + max(0.0, budget_seconds)
+        for name, th in launched:
+            remaining = deadline - _t.monotonic()
+            if remaining <= 0:
+                break
+            th.join(timeout=remaining)
+
+        # Drain whatever completed. Anything still running is left to finish in
+        # the background; its daemon thread dies with the process.
+        while True:
+            try:
+                name, df = out_q.get_nowait()
+                results[name] = df
+            except _queue.Empty:
+                break
+        # Fill in blanks for any fetcher that didn't finish in budget.
+        for name, _th in launched:
+            results.setdefault(name, pd.DataFrame())
 
     def _last_row(df):
         if df is None or df.empty or "date" not in df.columns:

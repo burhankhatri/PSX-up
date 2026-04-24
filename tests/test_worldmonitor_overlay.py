@@ -464,6 +464,50 @@ class TestFetchSnapshotBudget:
         assert snap is not None
         assert elapsed < 1.0, f"default path too slow: {elapsed:.2f}s"
 
+    def test_fetcher_threads_are_daemon(self):
+        """REGRESSION: non-daemon threads deadlocked uvicorn --reload.
+
+        The overlay used to leak non-daemon ThreadPoolExecutor workers on every
+        call. When watchfiles triggered a reload, uvicorn tried to kill the
+        worker subprocess but couldn't — the live non-daemon threads kept the
+        subprocess alive indefinitely, and the server wedged on the socket.
+        All fetch threads MUST be daemon so the subprocess can die cleanly.
+        """
+        import threading
+        import time as _t
+
+        captured = []
+        start_barrier = threading.Event()
+
+        def slow_and_record():
+            captured.append(threading.current_thread())
+            start_barrier.set()
+            _t.sleep(3.0)  # still alive when we check
+            return pd.DataFrame()
+
+        fake = {k: slow_and_record for k in
+                ("vix", "extended_asian", "gdelt_pk", "gdelt_regional",
+                 "quakes", "pkr", "brent")}
+
+        prices = pd.Series(np.linspace(100, 110, 260))
+        w = {k: 1.0 for k in DEFAULT_WEIGHTS}
+
+        # Short budget so we return while fetch threads are still mid-sleep.
+        snap = fetch_snapshot_for_weights(
+            symbol="OGDC", close_prices=prices, weights=w, fetchers=fake,
+            budget_seconds=0.2,
+        )
+
+        # Wait a tick for at least one thread to have started.
+        start_barrier.wait(timeout=1.0)
+
+        # At least one fetch thread should have been launched, and every one
+        # that was launched must be daemon (otherwise process can't exit).
+        assert captured, "no fetch threads launched"
+        for t in captured:
+            assert t.daemon, f"thread {t.name} is NOT daemon — uvicorn reload will deadlock"
+        assert snap is not None
+
 
 # ─── yfinance disk cache ──────────────────────────────────────────────────────
 # yfinance used to fetch on every process start (no persistent cache). These
