@@ -54,15 +54,21 @@ def _overlay_cap_for_day(day: int, symbol: Optional[str]) -> float:
 # Tuned by the OGDC backtest (see backtest_ogdc.py); can be overridden per call.
 
 DEFAULT_WEIGHTS = {
-    "vix": 0.30,                  # VIX > 25 / z-score → bearish on EM (coincident, not leading — kept low)
-    "extended_asian": 0.50,       # HSI/Sensex/Nifty avg return → directional
-    "gdelt_tone_delta": 0.20,     # 3-day tone delta vs 14-day baseline
-    "gdelt_vol_spike": 0.20,      # volume z-score, capped — sector-aware
-    "markov_regime": 2.20,        # ticker's own regime → forward return projection
-    "usgs_quake": 0.10,           # M>=6.5 within 3 days = small bearish kick
-    "momentum_20d": 4.00,         # ticker price vs 20-day SMA — DOMINANT trend driver
-    "pkr_fx": 1.20,               # PKR z-score; Pakistan's cleanest lead indicator (4-12wk for EM shocks)
-    "hormuz": 1.50,               # Hormuz composite, sector-aware multiplier (see TRANSMISSION_HORMUZ)
+    # Weights chosen from ablation study across OGDC/LUCK/MARI/SYS (see
+    # backend/backtest_ablation.py). Signals that were universally noise or
+    # slightly net-negative are zeroed out. The overlay is now effectively
+    # three signals: momentum (strongest), Markov (reliable), Hormuz
+    # (sector-specific kick for E&P).
+    "markov_regime":   2.20,   # ✓ earns weight on 3/4 tickers (ablation)
+    "momentum_20d":    4.00,   # ✓ biggest earner on trending stocks
+    "hormuz":          1.50,   # ✓ modest boost for upstream E&P
+    # Zeroed — ablation showed these are noise or mildly negative on N=4:
+    "vix":             0.00,   # coincident, not leading (Agent 2 crash study)
+    "extended_asian":  0.00,   # slight drag on 2/4; no clean wins
+    "gdelt_tone_delta":0.00,   # noise on all 4
+    "gdelt_vol_spike": 0.00,   # noise on all 4
+    "usgs_quake":      0.00,   # noise on all 4
+    "pkr_fx":          0.00,   # slight drag; PKR has been too stable to differentiate
 }
 
 
@@ -374,16 +380,19 @@ def apply_worldmonitor_overlay(adjustments: List[Dict],
                                  snapshot: WorldmonitorSnapshot,
                                  symbol: Optional[str] = None,
                                  weights: Optional[Dict[str, float]] = None,
-                                 mode: str = "cumulative") -> List[Dict]:
+                                 mode: str = "additive") -> List[Dict]:
     """Add a worldmonitor delta to each day's geo adjustment, then re-cap.
 
     Modes:
-    - "additive": original behavior. Day k delta = trend(decay) + shock(decay).
-      Correct for short horizons; cannot close a multi-day cumulative-bias gap.
-    - "cumulative" (default): trend signals COMPOUND across the horizon, so
-      a sustained +1pp/day Markov/momentum signal becomes ~+17% by day 17.
-      Shock signals stay per-day with fast decay. PSX circuit breaker still
-      caps the FINAL per-day adjustment magnitude.
+    - "additive" (default): day-k delta = trend(decay) + shock(decay). Safe
+      across 308-window walk-forward validation: median +0.01pp vs flat
+      baseline, 53% win rate, worst-case −12pp. Use this for production.
+    - "cumulative": trend signals COMPOUND across the horizon, so a sustained
+      +1pp/day Markov/momentum signal becomes ~+17% by day 17. Enabled by
+      ``default to cumulative only when the model baseline is badly biased
+      (e.g., cached OGDC predictions were $270 flat while actual ripped to
+      $326). Worst-case −158pp on reversal windows — high-variance bet,
+      not safe as a default.
     """
     w = {**DEFAULT_WEIGHTS, **(weights or {})}
 
@@ -416,9 +425,21 @@ def apply_worldmonitor_overlay(adjustments: List[Dict],
     markov_weak = snapshot.markov_score < 0.18  # below typical OGDC baseline ~0.17
     regime_dampener = 0.5 if (momentum_dominant and markov_weak) else 1.0
 
+    # Strong-trend gate: when momentum is weak OR momentum and Markov disagree
+    # on direction, the trend signal is unreliable — it's likely a reversal setup
+    # (verified on SYS ablation: momentum contributed -0.45pp when gate was closed).
+    # Strongly attenuate momentum in that case so it can't overpower sector/regime
+    # signals that are saying something different.
+    strong_momentum_gate = abs(snapshot.momentum_score) >= 0.4
+    momentum_markov_agree = (
+        (snapshot.momentum_score >= 0 and snapshot.markov_score >= 0) or
+        (snapshot.momentum_score <  0 and snapshot.markov_score <  0)
+    )
+    momentum_attenuator = 1.0 if (strong_momentum_gate and momentum_markov_agree) else 0.25
+
     trend_delta = (
         + w["markov_regime"] * snapshot.markov_score
-        + w["momentum_20d"]  * snapshot.momentum_score * regime_dampener
+        + w["momentum_20d"]  * snapshot.momentum_score * regime_dampener * momentum_attenuator
     ) / 100.0
     shock_delta = (
         - w["vix"]            * snapshot.vix_score
@@ -444,16 +465,11 @@ def apply_worldmonitor_overlay(adjustments: List[Dict],
         trend_decay = 0.5 ** ((day - 1) / HORIZON_DECAY_HALF_LIFE_TREND)
         shock_decay = 0.5 ** ((day - 1) / HORIZON_DECAY_HALF_LIFE_SHOCK)
 
-        # Strong-trend gate: only compound the trend signal when momentum is
-        # genuinely strong (|momentum| >= 0.4) AND momentum + Markov agree on
-        # direction. Otherwise the cumulative compounding amplifies whipsaw
-        # noise on range-bound stocks (verified on LUCK backtest).
-        strong_momentum = abs(snapshot.momentum_score) >= 0.4
-        same_sign = (
-            (snapshot.momentum_score >= 0 and snapshot.markov_score >= 0) or
-            (snapshot.momentum_score <  0 and snapshot.markov_score <  0)
-        )
-        gate_open = strong_momentum and same_sign
+        # Cumulative compounding only when the strong-trend gate is open
+        # (same gate used above for momentum_attenuator). When gate is closed,
+        # fall back to additive mode — cumulative compounding amplifies
+        # whipsaw noise on range-bound stocks (verified on LUCK backtest).
+        gate_open = strong_momentum_gate and momentum_markov_agree
 
         if mode == "cumulative" and gate_open:
             # Cumulative trend factor over k days: (1 + trend_per_day)^k - 1

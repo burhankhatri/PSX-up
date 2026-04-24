@@ -1093,6 +1093,37 @@ def merge_external_features(stock_df: pd.DataFrame,
         df[col] = kibor_df[col].values
     print(f"   ✅ Added {len(kibor_df.columns)} KIBOR features")
 
+    # 6b. Price-momentum features (from #6 of the overlay audit).
+    # These are the signals the post-process overlay relied on most heavily.
+    # Adding them as MODEL features (instead of post-process patches) lets
+    # the base model learn them structurally on its next retrain — which is
+    # the correct layer for them to live at. Until retrain, these columns
+    # simply exist on the DataFrame unused by the current trained models.
+    # All are strictly backward-looking so they're safe for time-series CV.
+    if 'Close' in df.columns and len(df) >= 210:
+        close = pd.to_numeric(df['Close'], errors='coerce').ffill()
+        sma20 = close.rolling(20).mean()
+        sma50 = close.rolling(50).mean()
+        sma200 = close.rolling(200).mean()
+        df['mom_price_vs_sma20_pct'] = ((close - sma20) / sma20).fillna(0.0)
+        df['mom_price_vs_sma50_pct'] = ((close - sma50) / sma50).fillna(0.0)
+        df['mom_price_vs_sma200_pct'] = ((close - sma200) / sma200).fillna(0.0)
+        # Rate-of-change (pure momentum)
+        df['mom_roc_5d'] = close.pct_change(5).fillna(0.0)
+        df['mom_roc_20d'] = close.pct_change(20).fillna(0.0)
+        df['mom_roc_60d'] = close.pct_change(60).fillna(0.0)
+        # Markov-style 5-state regime bin on price-vs-SMA200 (categorical 0..4)
+        dev200 = (close - sma200) / sma200
+        bins = [-np.inf, -0.15, -0.05, 0.05, 0.15, np.inf]
+        # digitize is 1..5 → shift to 0..4 for model-friendly integer encoding
+        regime = pd.cut(dev200, bins=bins, labels=False, include_lowest=True)
+        df['mom_regime_state'] = regime.fillna(2).astype(int)  # 2 = fair
+        # Realized vol (20-day, annualized-ish but kept as raw stddev scale)
+        df['mom_realized_vol_20d'] = close.pct_change().rolling(20).std().fillna(0.0)
+        print("   ✅ Added 8 momentum features: price_vs_sma20/50/200, roc_5/20/60d, regime_state, realized_vol_20d")
+    else:
+        print("   ℹ️ Momentum features skipped (insufficient history)")
+
     # 7. TradingView Technical Indicators (uses scraper cache TTL; no forced cache eviction)
     if TRADINGVIEW_AVAILABLE and symbol:
         print(f"\n6. Fetching TradingView indicators for {symbol}...")
