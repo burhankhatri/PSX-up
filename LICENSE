@@ -1,0 +1,43 @@
+PSX-up NO-REUSE CONTRIBUTION LICENSE
+
+Copyright (c) 2026 Burhanuddin Khatri
+
+This license applies to the source code and other original materials in the
+PSX-up repository (the "Software") unless a file or directory states a
+different license. Third-party materials remain subject to their own terms.
+
+Permission is granted, free of charge, to access, read, run, and use the
+Software for personal, educational, and research purposes. Permission is also
+granted to modify the Software in a working copy for the purpose of proposing,
+reviewing, testing, or maintaining contributions to this repository.
+
+Contributions are welcome. By submitting a contribution to this repository,
+you grant permission for that contribution to be accessed, reviewed, modified,
+and distributed only as part of this repository and under these same terms,
+unless you clearly state different terms for the contribution.
+
+The following uses are not permitted without prior written permission from the
+copyright holder:
+
+1. Copying, reusing, incorporating, adapting, or translating the Software or
+   any substantial portion of it in another repository, application, product,
+   service, dataset, model, or other project.
+2. Redistributing, publishing, sublicensing, selling, renting, or making the
+   Software or any substantial portion of it available as a separate work.
+3. Creating or maintaining a fork or other copy as an independent project.
+   A temporary or permanent fork is permitted only when reasonably necessary
+   to propose or maintain a contribution to this repository.
+4. Removing or obscuring this license or the copyright notice from copies that
+   are permitted for contribution, review, or maintenance purposes.
+
+For clarity, "use" of the Software does not include reuse of its code in a
+different project. This license does not grant permission to use any project
+name, logo, trademark, financial data, or third-party material included in the
+repository except as allowed by its respective owner or license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

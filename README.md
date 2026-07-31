@@ -7,7 +7,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-Ensemble-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3-FF6B6B?style=for-the-badge&logo=meta&logoColor=white)](https://groq.com)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-No--Reuse-red?style=for-the-badge)](LICENSE)
 
 **Research-Backed Stock Prediction System for Pakistan Stock Exchange**
 
@@ -661,7 +661,11 @@ This project is based on peer-reviewed studies of the Pakistan Stock Exchange:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+PSX-up is available under the [PSX-up No-Reuse Contribution License](LICENSE).
+You may run and use this repository for personal, educational, and research
+purposes, and contributions are welcome. Reusing, copying, or incorporating
+the code into another project, product, service, dataset, model, or repository
+is not permitted without prior written permission.
 
 ---
 
